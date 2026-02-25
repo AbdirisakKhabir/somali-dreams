@@ -32,7 +32,11 @@ export async function GET(req: NextRequest) {
 
     const students = await prisma.student.findMany({
       where: { classId: Number(classId), status: "Admitted" },
-      include: {
+      select: {
+        id: true,
+        studentId: true,
+        firstName: true,
+        lastName: true,
         admissionDate: true,
         department: {
           select: {
@@ -57,7 +61,19 @@ export async function GET(req: NextRequest) {
     }, {});
 
     const transcripts: {
-      student: { id: number; studentId: string; firstName: string; lastName: string; department: { id: number; name: string; code: string } };
+      student: {
+        id: number;
+        studentId: string;
+        firstName: string;
+        lastName: string;
+        admissionDate?: Date;
+        department: {
+          id: number;
+          name: string;
+          code: string;
+          faculty?: { id: number; name: string; code: string };
+        };
+      };
       records: { id: number; semester: string; year: number; totalMarks: number; grade: string | null; gradePoints: number | null; course: { code: string; name: string; creditHours: number } }[];
       gpa: { cumulativeGPA: number; totalCredits: number; semesters: { semester: string; year: number; gpa: number; totalCredits: number; totalGradePoints: number; courses: number }[] };
     }[] = [];
