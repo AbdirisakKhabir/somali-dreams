@@ -1,5 +1,5 @@
-// University Management System - Prisma Schema
-// https://pris.ly/d/prisma-schema
+// Somali Dreams - Membership & Referral Management System
+// For Somalia and Somaliland customers
 
 generator client {
   provider = "prisma-client-js"
@@ -10,16 +10,15 @@ datasource db {
 }
 
 model User {
-  id                 Int                 @id @default(autoincrement())
-  email              String              @unique
-  password           String
-  name               String?
-  roleId             Int
-  role               Role                @relation(fields: [roleId], references: [id], onDelete: Restrict)
-  isActive           Boolean             @default(true)
-  attendanceSessions AttendanceSession[]
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String?
+  roleId    Int
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("users")
 }
@@ -36,9 +35,9 @@ model Role {
 
 model Permission {
   id          Int              @id @default(autoincrement())
-  name        String           @unique // e.g. "users.view", "users.create"
+  name        String           @unique
   description String?
-  module      String? // e.g. "users", "admission", "attendance"
+  module      String?
   roles       RolePermission[]
 
   @@map("permissions")
@@ -54,197 +53,55 @@ model RolePermission {
   @@map("role_permissions")
 }
 
-model Faculty {
-  id          Int          @id @default(autoincrement())
-  name        String       @unique
-  code        String       @unique // e.g. "ENG", "SCI", "BUS"
-  description String?
-  program     String?      // "Bachelor", "Masters"
-  isActive    Boolean      @default(true)
-  departments Department[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-
-  @@map("faculties")
-}
-
-model Lecturer {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  phone     String?
-  degree    String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("lecturers")
-}
-
-model Department {
-  id          Int       @id @default(autoincrement())
-  name        String    @unique
-  code        String    @unique // e.g. "CS", "EE", "ACC"
-  description String?
-  facultyId   Int
-  faculty     Faculty   @relation(fields: [facultyId], references: [id], onDelete: Restrict)
-  tuitionFee  Float?    @default(0)
-  isActive    Boolean   @default(true)
-  courses     Course[]
-  students    Student[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@map("departments")
-}
-
-model Course {
-  id           Int          @id @default(autoincrement())
-  name         String       @unique
-  code         String       @unique // e.g. "CS101", "ENG201"
-  description  String?
-  creditHours  Int          @default(3)
-  departmentId Int
-  department   Department   @relation(fields: [departmentId], references: [id], onDelete: Restrict)
-  isActive     Boolean      @default(true)
-  classes      Class[]
-  examRecords  ExamRecord[]
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-
-  @@map("courses")
-}
-
-model Semester {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique // e.g. "Fall", "Spring", "Summer"
-  sortOrder Int      @default(0) // for display/ordering (lower = earlier in year)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("semesters")
-}
-
-model Class {
-  id                 Int                 @id @default(autoincrement())
-  name               String // e.g. "CS101-A", "CS101-B"
-  courseId           Int
-  course             Course              @relation(fields: [courseId], references: [id], onDelete: Restrict)
-  semester           String // e.g. "Fall", "Spring", "Summer"
-  year               Int // e.g. 2026
-  room               String? // e.g. "Room 201"
-  schedule           String? // e.g. "Mon/Wed 9:00-10:30"
-  capacity           Int                 @default(40)
-  isActive           Boolean             @default(true)
-  attendanceSessions AttendanceSession[]
-  students           Student[]
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-
-  @@unique([name, semester, year])
-  @@map("classes")
-}
-
-model Student {
-  id                Int                @id @default(autoincrement())
-  studentId         String             @unique // e.g. "STD-2026-0001"
-  firstName         String
-  lastName          String
-  motherName        String?
-  parentPhone       String?
-  email             String?            @unique
-  phone             String?
-  dateOfBirth       DateTime?
-  gender            String? // "Male", "Female"
-  address           String?
-  imageUrl          String? // Cloudinary URL (optional)
-  imagePublicId     String? // Cloudinary public_id for deletion
-  departmentId      Int
-  department        Department         @relation(fields: [departmentId], references: [id], onDelete: Restrict)
-  classId           Int?
-  class             Class?             @relation(fields: [classId], references: [id], onDelete: SetNull)
-  program           String?            // "Bachelor", "Masters"
-  admissionDate     DateTime           @default(now())
-  status            String             @default("Admitted") // "Pending", "Admitted", "Rejected", "Graduated"
-  attendanceRecords AttendanceRecord[]
-  examRecords       ExamRecord[]
-  tuitionPayments   TuitionPayment[]
+// Member = customer who paid to join Somali Dreams
+model Member {
+  id           Int                @id @default(autoincrement())
+  name         String
+  phone        String
+  email        String?
+  referralCode String             @unique // Unique code they share with friends (e.g. SD-ABC123)
+  referredById Int?               // Who referred this member (friend's referral code)
+  referredBy   Member?            @relation("MemberReferrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals    Member[]           @relation("MemberReferrals") // Friends who used this member's referral code
+  status       String             @default("Active") // Active, Inactive, Pending
+  membershipPayments MembershipPayment[]
+  paymentInvoices   PaymentInvoice[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
-  @@map("students")
+  @@map("members")
 }
 
-model TuitionPayment {
-  id           Int      @id @default(autoincrement())
-  studentId    Int
-  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  amount       Float    @default(0)
-  semester     String   // "Fall", "Spring", "Summer"
-  year         Int      // e.g. 2026
-  paidAt       DateTime @default(now())
-  note         String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+// Payment record - one per membership purchase
+model MembershipPayment {
+  id                    Int      @id @default(autoincrement())
+  memberId              Int
+  member                Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  amount                Float    @default(0)
+  paymentMethod         String   // "E-Dahab", "CreditCard", "Manual"
+  externalTransactionId String?  // From E-Dahab/payment API
+  paidAt                DateTime @default(now())
+  note                  String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
-  @@unique([studentId, semester, year])
-  @@map("tuition_payments")
+  @@map("membership_payments")
 }
 
-model AttendanceSession {
-  id        Int                @id @default(autoincrement())
-  classId   Int
-  class     Class              @relation(fields: [classId], references: [id], onDelete: Restrict)
-  date      DateTime           @db.Date
-  shift     String // "Morning", "Afternoon", "Evening"
-  takenById Int
-  takenBy   User               @relation(fields: [takenById], references: [id], onDelete: Restrict)
-  takenAt   DateTime           @default(now()) // exact timestamp when attendance was taken
-  note      String?
-  records   AttendanceRecord[]
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
+// Links E-Dahab invoice - stores registration data until payment succeeds
+model PaymentInvoice {
+  id                      Int      @id @default(autoincrement())
+  memberId                Int?     // Set when payment succeeds
+  member                  Member?  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  invoiceId               String   @unique // E-Dahab InvoiceId (UUID string)
+  amount                  Float    @default(0)
+  status                  String   @default("Pending") // Pending, Success, Failed
+  // Registration data - stored before payment, used to create Member on success
+  registrationName        String
+  registrationPhone       String
+  registrationWhatsapp    String?  // WhatsApp number (if different from phone)
+  registrationReferralCode String? // Friend's referral code they used
+  createdAt               DateTime @default(now())
 
-  @@unique([classId, date, shift])
-  @@map("attendance_sessions")
-}
-
-model AttendanceRecord {
-  id        Int               @id @default(autoincrement())
-  sessionId Int
-  session   AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  studentId Int
-  student   Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  status    String // "Present", "Absent", "Late", "Excused"
-  note      String?
-  createdAt DateTime          @default(now())
-
-  @@unique([sessionId, studentId])
-  @@map("attendance_records")
-}
-
-model ExamRecord {
-  id           Int      @id @default(autoincrement())
-  studentId    Int
-  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  courseId     Int
-  course       Course   @relation(fields: [courseId], references: [id], onDelete: Restrict)
-  semester     String // "Fall", "Spring", "Summer"
-  year         Int // e.g. 2026
-  midExam      Float?   @default(0) // out of 20
-  finalExam    Float?   @default(0) // out of 40
-  assessment   Float?   @default(0) // out of 10
-  project      Float?   @default(0) // out of 10
-  assignment   Float?   @default(0) // out of 10
-  presentation Float?   @default(0) // out of 10
-  totalMarks   Float    @default(0) // sum of all (out of 100)
-  grade        String? // "A", "A-", "B+", "B", "B-", "C+", "C", "D", "F"
-  gradePoints  Float?   @default(0) // 4.0, 3.7, 3.3, 3.0, 2.7, 2.3, 2.0, 1.0, 0.0
-  status       String   @default("approved") // "draft" | "approved" - draft until instructor verifies
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@unique([studentId, courseId, semester, year])
-  @@map("exam_records")
+  @@map("payment_invoices")
 }

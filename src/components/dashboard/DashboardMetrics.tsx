@@ -5,25 +5,17 @@ import Link from "next/link";
 import Badge from "../ui/badge/Badge";
 import {
   GroupIcon,
-  TableIcon,
-  ListIcon,
-  CalenderIcon,
-  PieChartIcon,
+  DollarLineIcon,
   PageIcon,
+  PieChartIcon,
 } from "@/icons";
 import { authFetch } from "@/lib/api";
 
 type DashboardCounts = {
-  users: number;
-  students: number;
-  admitted: number;
-  roles: number;
-  faculties: number;
-  departments: number;
-  courses: number;
-  classes: number;
-  attendance: number;
-  examRecords: number;
+  members: number;
+  active: number;
+  pending: number;
+  totalRevenue: number;
 };
 
 const metricCards: {
@@ -33,12 +25,10 @@ const metricCards: {
   href: string;
   color: "primary" | "success" | "info" | "warning" | "error";
 }[] = [
-  { key: "users", label: "Users", icon: <GroupIcon className="size-6" />, href: "/users", color: "primary" },
-  { key: "admitted", label: "Students", icon: <PageIcon className="size-6" />, href: "/admission", color: "success" },
-  { key: "courses", label: "Courses", icon: <ListIcon className="size-6" />, href: "/courses", color: "info" },
-  { key: "classes", label: "Classes", icon: <TableIcon className="size-6" />, href: "/classes", color: "warning" },
-  { key: "attendance", label: "Attendance Sessions", icon: <CalenderIcon className="size-6" />, href: "/attendance", color: "primary" },
-  { key: "examRecords", label: "Exam Records", icon: <PieChartIcon className="size-6" />, href: "/examinations", color: "success" },
+  { key: "members", label: "Total Members", icon: <GroupIcon className="size-6" />, href: "/members", color: "primary" },
+  { key: "active", label: "Active Members", icon: <PageIcon className="size-6" />, href: "/members?status=Active", color: "success" },
+  { key: "pending", label: "Pending Payment", icon: <PieChartIcon className="size-6" />, href: "/members?status=Pending", color: "warning" },
+  { key: "totalRevenue", label: "Total Revenue", icon: <DollarLineIcon className="size-6" />, href: "/members", color: "info" },
 ];
 
 export default function DashboardMetrics() {
@@ -47,7 +37,7 @@ export default function DashboardMetrics() {
 
   useEffect(() => {
     authFetch("/api/dashboard")
-      .then((res) => res.ok ? res.json() : null)
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.counts) setCounts(data.counts);
       })
@@ -57,8 +47,8 @@ export default function DashboardMetrics() {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 md:gap-6">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4 md:gap-6">
+        {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
             className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/5 md:p-6 animate-pulse"
@@ -73,7 +63,7 @@ export default function DashboardMetrics() {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 md:gap-6">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4 md:gap-6">
       {metricCards.map(({ key, label, icon, href, color }) => (
         <Link key={key} href={href}>
           <div className="rounded-2xl border border-gray-200 bg-white p-5 transition hover:border-brand-200 hover:shadow-sm dark:border-gray-800 dark:bg-white/5 dark:hover:border-brand-500/30 md:p-6">
@@ -84,7 +74,9 @@ export default function DashboardMetrics() {
               <div>
                 <span className="text-sm text-gray-500 dark:text-gray-400">{label}</span>
                 <h4 className="mt-2 text-title-sm font-bold text-gray-800 dark:text-white/90">
-                  {counts?.[key] ?? 0}
+                  {key === "totalRevenue"
+                    ? `$${((counts?.[key] ?? 0) as number).toLocaleString()}`
+                    : counts?.[key] ?? 0}
                 </h4>
               </div>
               <Badge variant="light" color={color} size="sm">

@@ -7,27 +7,19 @@ import { useSidebar } from "../context/SidebarContext";
 import { useAuth } from "../context/AuthContext";
 import {
   BoxCubeIcon,
-  CalenderIcon,
   ChevronDownIcon,
   DollarLineIcon,
   GridIcon,
   HorizontaLDots,
-  ListIcon,
   LockIcon,
   PageIcon,
   PieChartIcon,
-  TableIcon,
-  TimeIcon,
   UserCircleIcon,
 } from "../icons/index";
-
-// --- Types ---
 
 type SubItem = {
   name: string;
   path: string;
-  pro?: boolean;
-  new?: boolean;
   permission?: string;
 };
 
@@ -39,12 +31,9 @@ type NavItem = {
   subItems?: SubItem[];
 };
 
-type MenuCategory = "academics" | "reports" | "activities";
+type MenuCategory = "main" | "reports" | "activities";
 
-// --- Data Structures ---
-
-// Academics (top): Dashboard, Faculties, Departments, Courses, Classes, Admission, Attendance, Examinations
-const academicsItems: NavItem[] = [
+const mainItems: NavItem[] = [
   {
     icon: <GridIcon />,
     name: "Dashboard",
@@ -52,105 +41,28 @@ const academicsItems: NavItem[] = [
     permission: "dashboard.view",
   },
   {
-    icon: <BoxCubeIcon />,
-    name: "Faculties",
-    path: "/faculties",
-    permission: "faculties.view",
-  },
-  {
-    icon: <TableIcon />,
-    name: "Departments",
-    path: "/departments",
-    permission: "departments.view",
-  },
-  {
-    icon: <ListIcon />,
-    name: "Courses",
-    path: "/courses",
-    permission: "courses.view",
-  },
-  {
-    icon: <TimeIcon />,
-    name: "Semesters",
-    path: "/semesters",
-    permission: "semesters.view",
-  },
-  {
-    icon: <CalenderIcon />,
-    name: "Classes",
-    path: "/classes",
-    permission: "classes.view",
-  },
-  {
     icon: <UserCircleIcon />,
-    name: "Lecturers",
-    path: "/lecturers",
-    permission: "lecturers.view",
-  },
-  {
-    icon: <PageIcon />,
-    name: "Admission",
-    path: "/admission",
-    permission: "admission.view",
-  },
-  {
-    icon: <PieChartIcon />,
-    name: "Attendance",
-    path: "/attendance",
-    permission: "attendance.view",
-  },
-  {
-    icon: <ListIcon />,
-    name: "Examinations",
-    path: "/examinations",
-    permission: "examinations.view",
-    subItems: [
-      { name: "Exam Records", path: "/examinations", permission: "examinations.view" },
-      { name: "Record Exams", path: "/examinations/record", permission: "examinations.create" },
-      { name: "Student Transcript", path: "/examinations/transcript", permission: "examinations.view" },
-    ],
+    name: "Members",
+    path: "/members",
+    permission: "members.view",
   },
   {
     icon: <DollarLineIcon />,
-    name: "Finance",
-    path: "/finance",
-    permission: "admission.view",
+    name: "Payment Page",
+    path: "/pay",
+    permission: "dashboard.view",
   },
 ];
 
 const reportsItems: NavItem[] = [
   {
     icon: <PageIcon />,
-    name: "Admission Report",
-    path: "/reports/admission",
+    name: "Members Report",
+    path: "/reports/members",
     permission: "reports.view",
-  },
-  {
-    icon: <PieChartIcon />,
-    name: "Attendance Report",
-    path: "/reports/attendance",
-    permission: "reports.view",
-  },
-  {
-    icon: <ListIcon />,
-    name: "Exam Report",
-    path: "/reports/exam",
-    permission: "reports.view",
-  },
-  {
-    icon: <DollarLineIcon />,
-    name: "Payment Reports",
-    path: "/reports/payment",
-    permission: "reports.view",
-    subItems: [
-      { name: "Student Transactions", path: "/reports/student-transactions", permission: "reports.view" },
-      { name: "Class Revenue", path: "/reports/class-revenue", permission: "reports.view" },
-      { name: "Unpaid Students", path: "/reports/unpaid-students", permission: "reports.view" },
-    ],
   },
 ];
 
-// Activities (bottom): Users, Roles, Permissions
 const activitiesItems: NavItem[] = [
   {
     icon: <UserCircleIcon />,
@@ -172,8 +84,6 @@ const activitiesItems: NavItem[] = [
   },
 ];
 
-// --- Helper Functions ---
-
 function filterByPermission<T extends { permission?: string; subItems?: SubItem[] }>(
   items: T[],
   hasPermission: (p: string) => boolean
@@ -190,19 +100,15 @@ function filterByPermission<T extends { permission?: string; subItems?: SubItem[
     .filter((item) => !item.subItems || (item.subItems && item.subItems.length > 0));
 }
 
-// --- Component ---
-
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const { hasPermission } = useAuth();
   const pathname = usePathname();
 
-  // Filtered menus (memoized to prevent useEffect infinite loop)
-  const academicsNav = useMemo(() => filterByPermission(academicsItems, hasPermission), [hasPermission]);
+  const mainNav = useMemo(() => filterByPermission(mainItems, hasPermission), [hasPermission]);
   const reportsNav = useMemo(() => filterByPermission(reportsItems, hasPermission), [hasPermission]);
   const activitiesNav = useMemo(() => filterByPermission(activitiesItems, hasPermission), [hasPermission]);
 
-  // State
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: MenuCategory;
     index: number;
@@ -221,15 +127,14 @@ const AppSidebar: React.FC = () => {
     });
   };
 
-  // Effect: Auto-open submenu based on current path
   useEffect(() => {
     let submenuMatched = false;
     let matchedState: { type: MenuCategory; index: number } | null = null;
-    const categories: MenuCategory[] = ["academics", "reports", "activities"];
+    const categories: MenuCategory[] = ["main", "reports", "activities"];
 
     categories.forEach((menuType) => {
       const items =
-        menuType === "academics" ? academicsNav :
+        menuType === "main" ? mainNav :
         menuType === "reports" ? reportsNav : activitiesNav;
 
       items.forEach((nav, index) => {
@@ -252,9 +157,8 @@ const AppSidebar: React.FC = () => {
       if (!submenuMatched && prev === null) return prev;
       return null;
     });
-  }, [pathname, academicsNav, reportsNav, activitiesNav]);
+  }, [pathname, mainNav, reportsNav, activitiesNav]);
 
-  // Effect: Update height for transitions (measure after DOM update)
   useEffect(() => {
     if (openSubmenu !== null) {
       const key = `${openSubmenu.type}-${openSubmenu.index}`;
@@ -376,16 +280,15 @@ const AppSidebar: React.FC = () => {
       <div className={`py-8 flex ${!isExpanded && !isHovered && !isMobileOpen ? "lg:justify-center" : ""}`}>
         <Link href="/" className={`flex items-center gap-2 ${!isExpanded && !isHovered && !isMobileOpen ? "lg:justify-center" : ""}`}>
           <Image
-            src="/logo/logo%20abaarso.png"
-            alt="ATU Berbera"
+            src="/logo/EF3CA930-92BD-4A4E-8E72-BC823679B82A.webp"
+            alt="Somali Dreams"
             width={48}
             height={48}
-            priority
-            className="object-contain h-12 w-12 shrink-0"
+            className="h-12 w-12 shrink-0 object-contain"
           />
           {(isExpanded || isHovered || isMobileOpen) && (
             <span className="text-sm font-semibold text-gray-800 dark:text-white/90 whitespace-nowrap">
-              ABAARSO TECH UNIVERSITY
+              Somali Dreams
             </span>
           )}
         </Link>
@@ -394,17 +297,15 @@ const AppSidebar: React.FC = () => {
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
         <nav className="mb-6">
           <div className="flex flex-col gap-4">
-            {/* Academics Section (top) */}
-            {academicsNav.length > 0 && (
+            {mainNav.length > 0 && (
               <div>
                 <h2 className={`mb-4 text-xs uppercase flex text-gray-400 ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start"}`}>
-                  {isExpanded || isHovered || isMobileOpen ? "Academics" : <HorizontaLDots />}
+                  {isExpanded || isHovered || isMobileOpen ? "Main" : <HorizontaLDots />}
                 </h2>
-                {renderMenuItems(academicsNav, "academics")}
+                {renderMenuItems(mainNav, "main")}
               </div>
             )}
 
-            {/* Reports Section */}
             {reportsNav.length > 0 && (
               <div>
                 <h2 className={`mb-4 text-xs uppercase flex text-gray-400 ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start"}`}>
@@ -414,11 +315,10 @@ const AppSidebar: React.FC = () => {
               </div>
             )}
 
-            {/* Activities Section (bottom): Users, Roles, Permissions */}
             {activitiesNav.length > 0 && (
               <div>
                 <h2 className={`mb-4 text-xs uppercase flex text-gray-400 ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start"}`}>
-                  {isExpanded || isHovered || isMobileOpen ? "Activities" : <HorizontaLDots />}
+                  {isExpanded || isHovered || isMobileOpen ? "Settings" : <HorizontaLDots />}
                 </h2>
                 {renderMenuItems(activitiesNav, "activities")}
               </div>

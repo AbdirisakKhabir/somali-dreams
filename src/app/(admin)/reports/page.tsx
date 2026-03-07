@@ -2,20 +2,20 @@ import type { Metadata } from "next";
 import React from "react";
 import Link from "next/link";
 import PageBreadCrumb from "@/components/common/PageBreadCrumb";
-import { PageIcon, PieChartIcon, ListIcon, DollarLineIcon } from "@/icons";
+import { PageIcon } from "@/icons";
 
 export const metadata: Metadata = {
-  title: "Reports | Abaarso Tech University",
-  description: "Abaarso Tech University reports",
+  title: "Reports | Somali Dreams",
+  description: "Somali Dreams reports",
 };
 
 const reportLinks = [
-  { name: "Admission Report", path: "/reports/admission", icon: PageIcon, description: "View students by department and class with status breakdown" },
-  { name: "Attendance Report", path: "/reports/attendance", icon: PieChartIcon, description: "View attendance sessions with present/absent/late/excused counts" },
-  { name: "Exam Report", path: "/reports/exam", icon: ListIcon, description: "View exam records by department and class with grade distribution" },
-  { name: "Student Transactions", path: "/reports/student-transactions", icon: DollarLineIcon, description: "View student payment status by department and class" },
-  { name: "Class Revenue", path: "/reports/class-revenue", icon: DollarLineIcon, description: "View class revenue with paid/unpaid counts" },
-  { name: "Unpaid Students", path: "/reports/unpaid-students", icon: DollarLineIcon, description: "Generate list of students who have not paid for a specific semester and class" },
+  {
+    name: "Members Report",
+    path: "/reports/members",
+    icon: PageIcon,
+    description: "View all members with referral codes and referral counts",
+  },
 ];
 
 export default function ReportsIndexPage() {
@@ -23,7 +23,7 @@ export default function ReportsIndexPage() {
     <div>
       <PageBreadCrumb pageTitle="Reports" />
       <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-        Select a report to view and print. Each report can be printed separately.
+        Select a report to view.
       </p>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {reportLinks.map((report) => (
@@ -32,9 +32,15 @@ export default function ReportsIndexPage() {
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-500/10">
                 <report.icon className="size-6 text-brand-600 dark:text-brand-400" />
               </div>
-              <h3 className="mb-2 text-lg font-semibold text-gray-800 dark:text-white/90">{report.name}</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{report.description}</p>
-              <p className="mt-3 text-sm font-medium text-brand-600 dark:text-brand-400">View Report →</p>
+              <h3 className="mb-2 text-lg font-semibold text-gray-800 dark:text-white/90">
+                {report.name}
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {report.description}
+              </p>
+              <p className="mt-3 text-sm font-medium text-brand-600 dark:text-brand-400">
+                View Report →
+              </p>
             </div>
           </Link>
         ))}

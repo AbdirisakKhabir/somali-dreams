@@ -8,7 +8,7 @@ export const TRANSCRIPT_BRAND = {
   documentTitle: "Student's Cumulative Record and Partial Transcript",
   email: "registrar@abaarsotech.edu",
   website: "www.abaarsotech.edu",
-  logoUrl: "/logo/logo%20abaarso.png",
+  logoUrl: "/logo/EF3CA930-92BD-4A4E-8E72-BC823679B82A.webp",
   semesterHeaderBg: "#d4edda", // Light green for Academic Year / Semester bands
   semesterHeaderText: "#155724",
   failGradeBg: "#fff3cd", // Yellow highlight for failing grades

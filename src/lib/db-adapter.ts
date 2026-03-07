@@ -8,26 +8,25 @@ export function getDbAdapter() {
 
   const parsed = new URL(url);
   const socket = parsed.searchParams.get("socket");
+  const baseConfig = {
+    user: decodeURIComponent(parsed.username),
+    password: decodeURIComponent(parsed.password),
+    database: parsed.pathname.replace(/^\//, ""),
+    connectTimeout: 30000,
+    acquireTimeout: 30000,
+  };
 
   // Handle both TCP and Unix socket DB URLs.
   if (socket) {
     return new PrismaMariaDb({
-      user: decodeURIComponent(parsed.username),
-      password: decodeURIComponent(parsed.password),
-      database: parsed.pathname.replace(/^\//, ""),
+      ...baseConfig,
       socketPath: socket,
-      connectTimeout: 15000,
-      acquireTimeout: 15000,
     });
   }
 
   return new PrismaMariaDb({
+    ...baseConfig,
     host: parsed.hostname,
     port: parsed.port ? Number(parsed.port) : 3306,
-    user: decodeURIComponent(parsed.username),
-    password: decodeURIComponent(parsed.password),
-    database: parsed.pathname.replace(/^\//, ""),
-    connectTimeout: 15000,
-    acquireTimeout: 15000,
   });
 }

@@ -25,8 +25,8 @@ export default function AuthLayout({
                   <Image
                     width={200}
                     height={55}
-                    src="/logo/logo%20abaarso.png"
-                    alt="Logo"
+                    src="/logo/EF3CA930-92BD-4A4E-8E72-BC823679B82A.webp"
+                    alt="Somali Dreams"
                     className="object-contain"
                   />
                 </Link>

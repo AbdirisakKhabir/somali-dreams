@@ -1,0 +1,227 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Image from "next/image";
+
+const SUCCESS_REDIRECT_URL =
+  process.env.NEXT_PUBLIC_PAY_SUCCESS_URL ?? "https://somalidreams.com";
+
+export default function PayReturnPage() {
+  const [status, setStatus] = useState<"loading" | "success" | "pending" | "error">("loading");
+  const [message, setMessage] = useState("");
+
+  // Redirect to SomaliDreams.com when payment is successful
+  useEffect(() => {
+    if (status !== "success") return;
+    const timer = setTimeout(() => {
+      window.location.href = SUCCESS_REDIRECT_URL;
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [status]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+    const invoiceId =
+      params.get("invoiceId") ??
+      params.get("InvoiceId") ??
+      params.get("invoice_id");
+
+    if (!invoiceId?.trim()) {
+      setStatus("error");
+      setMessage("Invalid return URL. No invoice ID. Please contact support with your payment details.");
+      return;
+    }
+
+    let retryCount = 0;
+    const maxRetries = 4;
+
+    const checkPayment = () => {
+      fetch(`/api/edahab/confirm-payment?invoiceId=${encodeURIComponent(invoiceId.trim())}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.paid) {
+            setStatus("success");
+            setMessage(data.alreadyProcessed ? "You are already a member." : "Payment confirmed! You are now a member.");
+            if (typeof window !== "undefined") {
+              sessionStorage.removeItem("somali_dreams_ref");
+            }
+          } else if ((data.status === "Pending" || data.message?.toLowerCase().includes("pending")) && retryCount < maxRetries) {
+            retryCount += 1;
+            setTimeout(checkPayment, 2000 * retryCount);
+          } else if (data.status === "Pending" || data.message?.toLowerCase().includes("pending")) {
+            setStatus("pending");
+            setMessage("Your payment is still being processed. We will notify you when it is complete.");
+          } else {
+            setStatus("error");
+            setMessage(data.error || data.message || "Payment could not be confirmed.");
+          }
+        })
+        .catch(() => {
+          setStatus("error");
+          setMessage("Something went wrong. Please contact support.");
+        });
+    };
+
+    checkPayment();
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-[#faf8f5] dark:bg-[#0f0f0f]">
+      <div
+        className="fixed inset-0 pointer-events-none opacity-[0.03] dark:opacity-[0.02]"
+        style={{
+          backgroundImage: `radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)`,
+          backgroundSize: "40px 40px",
+        }}
+      />
+
+      <div className="relative mx-auto max-w-md px-4 py-16 sm:py-24">
+        <div className="mb-12 text-center">
+          <div className="mb-6 inline-flex items-center justify-center rounded-2xl bg-white dark:bg-white/5 p-4 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.08)] dark:shadow-none ring-1 ring-black/5 dark:ring-white/10">
+            <Image
+              src="/logo/EF3CA930-92BD-4A4E-8E72-BC823679B82A.webp"
+              alt="Somali Dreams"
+              width={80}
+              height={80}
+              className="object-contain"
+            />
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight text-[#1a1a1a] dark:text-white sm:text-4xl">
+            Somali Dreams
+          </h1>
+        </div>
+
+        <div className="overflow-hidden rounded-2xl bg-white dark:bg-white/5 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.08),0_8px_48px_-8px_rgba(0,0,0,0.12)] dark:shadow-none ring-1 ring-black/5 dark:ring-white/10">
+          <div className="p-8 text-center">
+            {status === "loading" && (
+              <div className="flex flex-col items-center gap-4">
+                <svg
+                  className="h-12 w-12 animate-spin text-amber-500"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+                <p className="text-[#5c5c5c] dark:text-gray-400">
+                  Verifying your payment...
+                </p>
+              </div>
+            )}
+
+            {status === "success" && (
+              <div>
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-500/20">
+                  <svg
+                    className="h-8 w-8 text-emerald-600 dark:text-emerald-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-semibold text-[#1a1a1a] dark:text-white">
+                  Welcome to Somali Dreams!
+                </h2>
+                <p className="mt-2 text-[#5c5c5c] dark:text-gray-400">
+                  {message}
+                </p>
+                <p className="mt-4 text-sm text-[#5c5c5c] dark:text-gray-500">
+                  Your referral code has been sent to your phone via WhatsApp. Redirecting you to Somali Dreams...
+                </p>
+                <a
+                  href={SUCCESS_REDIRECT_URL}
+                  className="mt-6 inline-block w-full rounded-xl bg-amber-500 py-3.5 font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:bg-amber-600"
+                >
+                  Go to Somali Dreams
+                </a>
+              </div>
+            )}
+
+            {status === "pending" && (
+              <div>
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-500/20">
+                  <svg
+                    className="h-8 w-8 text-amber-600 dark:text-amber-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-semibold text-[#1a1a1a] dark:text-white">
+                  Payment in progress
+                </h2>
+                <p className="mt-2 text-[#5c5c5c] dark:text-gray-400">
+                  {message}
+                </p>
+                <a
+                  href="/pay"
+                  className="mt-6 inline-block text-sm font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400"
+                >
+                  Back to payment
+                </a>
+              </div>
+            )}
+
+            {status === "error" && (
+              <div>
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-500/20">
+                  <svg
+                    className="h-8 w-8 text-red-600 dark:text-red-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-semibold text-[#1a1a1a] dark:text-white">
+                  Payment issue
+                </h2>
+                <p className="mt-2 text-[#5c5c5c] dark:text-gray-400">
+                  {message}
+                </p>
+                <a
+                  href="/pay"
+                  className="mt-6 inline-block rounded-xl bg-amber-500 py-3 px-6 font-semibold text-white hover:bg-amber-600"
+                >
+                  Try again
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
