@@ -37,9 +37,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let body: Record<string, unknown>;
+    let body: any;
     try {
-      body = (await req.json()) as Record<string, unknown>;
+      body = await req.json();
     } catch (parseErr) {
       console.error("[create-invoice] Invalid JSON body:", parseErr);
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
@@ -52,7 +52,8 @@ export async function POST(req: NextRequest) {
     // Debug: log received keys (not values) to help diagnose 400 from frontend vs Postman
     console.log("[create-invoice] Received keys:", Object.keys(body));
 
-    const { edahabNumber, name, phone: phoneInput, whatsappPhone, amount: requestAmount, plan } = body;
+    const { edahabNumber, name, phone: phoneInput, whatsappPhone, amount: requestAmount, plan } =
+      body;
 
     // Amount from selected plan: Monthly $1.99, Yearly $17.99 (USD) - numeric only, no symbols
     const planAmounts: Record<string, number> = {
@@ -64,8 +65,14 @@ export async function POST(req: NextRequest) {
       amount = Math.round(requestAmount * 100) / 100;
     } else if (typeof requestAmount === "string") {
       const parsed = parseFloat(String(requestAmount).replace(/[^0-9.]/g, ""));
-      amount = !isNaN(parsed) && parsed > 0 ? Math.round(parsed * 100) / 100 : planAmounts[plan ?? "monthly"] ?? 1.99;
-    } else if (plan && planAmounts[plan]) {
+      if (!isNaN(parsed) && parsed > 0) {
+        amount = Math.round(parsed * 100) / 100;
+      } else if (typeof plan === "string" && planAmounts[plan]) {
+        amount = planAmounts[plan];
+      } else {
+        amount = planAmounts["monthly"];
+      }
+    } else if (typeof plan === "string" && planAmounts[plan]) {
       amount = planAmounts[plan];
     } else {
       amount = Number(process.env.EDAHAB_AMOUNT ?? "1.99");
