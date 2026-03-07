@@ -3,7 +3,7 @@
  * Customize these values to match your institution.
  */
 export const TRANSCRIPT_BRAND = {
-  universityName: "Abaarso Tech University",
+  universityName: "Somali Dreams",
   officeTitle: "Office of the Registrar",
   documentTitle: "Student's Cumulative Record and Partial Transcript",
   email: "registrar@abaarsotech.edu",
