@@ -17,10 +17,10 @@ function getReturnUrl(req: NextRequest): string {
     try {
       base = new URL(req.url).origin;
     } catch {
-      base = "http://localhost:3000";
+      base = "https://app.somalidreams";
     }
   }
-  return base ? `${base}/pay/return` : "http://localhost:3000/pay/return";
+  return base ? `${base}/pay/return` : "https://app.somalidreams/pay/return";
 }
 
 export async function POST(req: NextRequest) {
