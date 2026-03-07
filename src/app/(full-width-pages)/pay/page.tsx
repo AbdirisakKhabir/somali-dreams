@@ -17,7 +17,7 @@ type Country = {
 const REF_STORAGE_KEY = "somali_dreams_ref";
 
 const PLANS = [
-  { id: "monthly", label: "Monthly", amount: 1.99, period: "per month" },
+  { id: "monthly", label: "Monthly", amount: 1.99, period: "per month", save: "" },
   { id: "yearly", label: "Yearly", amount: 17.99, period: "per year", save: "Save 25%" },
 ] as const;
 
