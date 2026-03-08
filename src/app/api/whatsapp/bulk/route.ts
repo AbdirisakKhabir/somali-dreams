@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
 // Send custom WhatsApp message to multiple members
+// Uses shared lib directly (no HTTP self-call) to avoid "fetch failed"
 export async function POST(req: NextRequest) {
   try {
     const auth = await getAuthUser(req);
@@ -43,38 +45,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const baseUrl =
-      process.env.NEXTAUTH_URL?.trim() ||
-      process.env.SITE_URL?.trim() ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
-    const apiUrl = `${baseUrl.replace(/\/$/, "")}/api/whatsapp`;
-
     const results: { id: number; name: string; success: boolean; error?: string }[] = [];
     for (const m of members) {
-      try {
-        const res = await fetch(apiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            phone: m.phone,
-            message: message.trim(),
-          }),
-        });
-        const data = await res.json();
-        results.push({
-          id: m.id,
-          name: m.name,
-          success: res.ok && (data.success || data.message?.includes("successfully")),
-          error: data.error || (res.ok ? undefined : data.details || "Failed"),
-        });
-      } catch (err) {
-        results.push({
-          id: m.id,
-          name: m.name,
-          success: false,
-          error: (err as Error).message,
-        });
-      }
+      const result = await sendWhatsAppMessage(m.phone, message.trim());
+      results.push({
+        id: m.id,
+        name: m.name,
+        success: result.success,
+        error: result.success ? undefined : result.error,
+      });
     }
 
     const successCount = results.filter((r) => r.success).length;
