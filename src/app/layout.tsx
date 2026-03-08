@@ -1,4 +1,5 @@
 import { Outfit } from 'next/font/google';
+import type { Metadata } from 'next';
 import './globals.css';
 import "flatpickr/dist/flatpickr.css";
 import { SidebarProvider } from '@/context/SidebarContext';
@@ -8,6 +9,12 @@ import { AuthProvider } from '@/context/AuthContext';
 const outfit = Outfit({
   subsets: ["latin"],
 });
+
+export const metadata: Metadata = {
+  icons: {
+    icon: '/logo/EF3CA930-92BD-4A4E-8E72-BC823679B82A.webp',
+  },
+};
 
 export default function RootLayout({
   children,

@@ -1,6 +1,5 @@
 "use client";
 
-import Checkbox from "@/components/form/input/Checkbox";
 import Input from "@/components/form/input/InputField";
 import Label from "@/components/form/Label";
 import Button from "@/components/ui/button/Button";
@@ -13,7 +12,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
-  const [isChecked, setIsChecked] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -107,7 +105,7 @@ export default function SignInForm() {
                     Email <span className="text-error-500">*</span>{" "}
                   </Label>
                   <Input
-                    placeholder="admin@abaarsotech.edu"
+                    placeholder="Example@gmail.com"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -136,20 +134,6 @@ export default function SignInForm() {
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Checkbox checked={isChecked} onChange={setIsChecked} />
-                    <span className="block font-normal text-gray-700 text-theme-sm dark:text-gray-400">
-                      Keep me logged in
-                    </span>
-                  </div>
-                  <Link
-                    href="/reset-password"
-                    className="text-sm text-brand-500 hover:text-brand-600 dark:text-brand-400"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
                 <div>
                   <Button
                     className="w-full"
@@ -162,18 +146,6 @@ export default function SignInForm() {
                 </div>
               </div>
             </form>
-
-            <div className="mt-5">
-              <p className="text-sm font-normal text-center text-gray-700 dark:text-gray-400 sm:text-start">
-                Don&apos;t have an account?{" "}
-                <Link
-                  href="/signup"
-                  className="text-brand-500 hover:text-brand-600 dark:text-brand-400"
-                >
-                  Sign Up
-                </Link>
-              </p>
-            </div>
           </div>
         </div>
       </div>
