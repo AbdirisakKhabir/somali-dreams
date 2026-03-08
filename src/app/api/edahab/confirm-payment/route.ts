@@ -216,7 +216,7 @@ export async function GET(req: NextRequest) {
         try {
           baseUrl = new URL(req.url).origin;
         } catch {
-          baseUrl = "http://localhost:3000";
+          baseUrl = "https://app.somalidreams";
         }
       }
       const membersUrl =

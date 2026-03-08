@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     // Debug: log received keys (not values) to help diagnose 400 from frontend vs Postman
     console.log("[create-invoice] Received keys:", Object.keys(body));
 
-    const { edahabNumber, name, phone: phoneInput, whatsappPhone, amount: requestAmount, plan } =
+    const { edahabNumber, name, phone: phoneInput, whatsappPhone, amount: requestAmount, plan, referralCode: referralCodeInput } =
       body;
 
     // Amount from selected plan: Monthly $1.99, Yearly $17.99 (USD) - numeric only, no symbols
@@ -76,6 +76,18 @@ export async function POST(req: NextRequest) {
       amount = planAmounts[plan];
     } else {
       amount = Number(process.env.EDAHAB_AMOUNT ?? "1.99");
+    }
+
+    // 20% referral discount when valid referral code is used
+    const referralCode = referralCodeInput?.trim?.() || null;
+    if (referralCode) {
+      const trimmed = referralCode.trim().toUpperCase();
+      const referrer =
+        (await prisma.member.findFirst({ where: { referralCode: trimmed } })) ??
+        (await prisma.member.findFirst({ where: { referralCode: referralCode.trim() } }));
+      if (referrer) {
+        amount = Math.round(amount * 0.8 * 100) / 100;
+      }
     }
 
     if (!edahabNumber || (typeof edahabNumber === "string" && !edahabNumber.trim())) {

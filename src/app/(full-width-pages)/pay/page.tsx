@@ -16,6 +16,8 @@ type Country = {
 
 const REF_STORAGE_KEY = "somali_dreams_ref";
 
+const REFERRAL_DISCOUNT = 0.2; // 20% off when using referral link
+
 const PLANS = [
   { id: "monthly", label: "Monthly", amount: 1.99, period: "per month", save: "" },
   { id: "yearly", label: "Yearly", amount: 17.99, period: "per year", save: "Save 25%" },
@@ -99,6 +101,7 @@ function PayPageContent() {
           : undefined;
 
       const selectedPlan = PLANS.find((p) => p.id === plan) ?? PLANS[0];
+      // API applies 20% discount when referralCode is valid
 
       // Create invoice only - member is created when payment succeeds (not on cancel)
       const invoiceRes = await fetch("/api/edahab/create-invoice", {
@@ -264,7 +267,7 @@ function PayPageContent() {
                   </p>
                   {effectiveRefCode && (
                     <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">
-                      Joined via referral link
+                      Joined via referral link – 20% discount applied
                     </p>
                   )}
                 </div>
@@ -280,33 +283,51 @@ function PayPageContent() {
                     Membership plan
                   </label>
                   <div className="grid grid-cols-2 gap-3">
-                    {PLANS.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => setPlan(p.id)}
-                        className={`relative rounded-xl border-2 px-4 py-3 text-left transition-all ${
-                          plan === p.id
-                            ? "border-amber-500 bg-amber-50 dark:border-amber-400 dark:bg-amber-500/10"
-                            : "border-gray-200 bg-gray-50 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800/50 dark:hover:border-gray-600"
-                        }`}
-                      >
-                        <span className="block font-semibold text-[#1a1a1a] dark:text-white">
-                          {p.label}
-                        </span>
-                        <span className="mt-1 block text-lg font-bold text-amber-600 dark:text-amber-400">
-                          ${p.amount.toFixed(2)}
-                        </span>
-                        <span className="block text-xs text-[#5c5c5c] dark:text-gray-500">
-                          {p.period}
-                        </span>
-                        {p.save && (
-                          <span className="absolute right-2 top-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400">
-                            {p.save}
+                    {PLANS.map((p) => {
+                      const discountedAmount = effectiveRefCode
+                        ? Math.round(p.amount * (1 - REFERRAL_DISCOUNT) * 100) / 100
+                        : p.amount;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setPlan(p.id)}
+                          className={`relative rounded-xl border-2 px-4 py-3 text-left transition-all ${
+                            plan === p.id
+                              ? "border-amber-500 bg-amber-50 dark:border-amber-400 dark:bg-amber-500/10"
+                              : "border-gray-200 bg-gray-50 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800/50 dark:hover:border-gray-600"
+                          }`}
+                        >
+                          <span className="block font-semibold text-[#1a1a1a] dark:text-white">
+                            {p.label}
                           </span>
-                        )}
-                      </button>
-                    ))}
+                          <span className="mt-1 block text-lg font-bold text-amber-600 dark:text-amber-400">
+                            {effectiveRefCode ? (
+                              <>
+                                <span className="line-through text-gray-400 dark:text-gray-500">
+                                  ${p.amount.toFixed(2)}
+                                </span>{" "}
+                                ${discountedAmount.toFixed(2)}
+                              </>
+                            ) : (
+                              `$${p.amount.toFixed(2)}`
+                            )}
+                          </span>
+                          <span className="block text-xs text-[#5c5c5c] dark:text-gray-500">
+                            {p.period}
+                          </span>
+                          {effectiveRefCode ? (
+                            <span className="absolute right-2 top-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-500/20 dark:text-amber-400">
+                              20% off
+                            </span>
+                          ) : p.save ? (
+                            <span className="absolute right-2 top-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400">
+                              {p.save}
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
