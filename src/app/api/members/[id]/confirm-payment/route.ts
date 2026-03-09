@@ -42,15 +42,20 @@ export async function POST(
     ]);
 
     // Send WhatsApp with referral code and welcome
-    let baseUrl = process.env.NEXTAUTH_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+    let baseUrl =
+      process.env.SITE_URL?.trim() ||
+      process.env.NEXTAUTH_URL?.trim() ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
     if (!baseUrl && typeof req.url === "string") {
       try {
         baseUrl = new URL(req.url).origin;
       } catch {
-        baseUrl = "http://localhost:3000";
+        /* ignore */
       }
     }
-    if (!baseUrl) baseUrl = "http://localhost:3000";
+    if (!baseUrl || baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1")) {
+      baseUrl = process.env.SOMALI_DREAMS_PAY_URL?.replace(/\/pay\/?$/, "") || "https://app.somalidreams.com";
+    }
     const membersUrl = process.env.SOMALI_DREAMS_MEMBERS_URL || "https://somalidreams.com/members";
     const payBase = (process.env.SOMALI_DREAMS_PAY_URL || `${baseUrl.replace(/\/$/, "")}/pay`).replace(/\/$/, "");
     const referralLink = member.referralCode

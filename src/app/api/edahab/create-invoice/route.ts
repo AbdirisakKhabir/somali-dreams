@@ -7,20 +7,45 @@ const EDAHAB_API_URL = "https://edahab.net/api/api/IssueInvoice";
 // Payment URL format from E-Dahab docs
 const PAYMENT_URL = "https://edahab.net/API/Payment";
 
+function isLocalhost(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.hostname === "localhost" || u.hostname === "127.0.0.1";
+  } catch {
+    return url.includes("localhost") || url.includes("127.0.0.1");
+  }
+}
+
 function getReturnUrl(req: NextRequest): string {
-  const env = process.env.EDAHAB_RETURN_URL;
-  if (env) return env;
-  let base =
-    process.env.NEXTAUTH_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
-  if (!base && typeof req.url === "string") {
+  // E-Dahab redirects here after payment. NEVER use localhost - user would never reach our page.
+  const env = process.env.EDAHAB_RETURN_URL?.trim();
+  if (env && !isLocalhost(env)) {
+    return env.includes("/pay/return") ? env : env.replace(/\/$/, "") + "/pay/return";
+  }
+
+  const candidates = [
+    process.env.SITE_URL?.trim(),
+    process.env.NEXTAUTH_URL?.trim(),
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "",
+  ].filter(Boolean) as string[];
+
+  if (typeof req.url === "string") {
     try {
-      base = new URL(req.url).origin;
+      const origin = new URL(req.url).origin;
+      if (origin && !isLocalhost(origin)) candidates.unshift(origin);
     } catch {
-      base = "https://app.somalidreams";
+      /* ignore */
     }
   }
-  return base ? `${base}/pay/return` : "https://app.somalidreams/pay/return";
+
+  for (const base of candidates) {
+    if (!base || isLocalhost(base)) continue;
+    const url = base.replace(/\/$/, "") + "/pay/return";
+    if (!isLocalhost(url)) return url;
+  }
+
+  console.warn("[create-invoice] EDAHAB_RETURN_URL not set or localhost. Set EDAHAB_RETURN_URL=https://yoursite.com/pay/return for production.");
+  return "https://app.somalidreams.com/pay/return";
 }
 
 export async function POST(req: NextRequest) {
@@ -118,13 +143,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Request body - plan amounts ($1.99, $17.99) are USD; must use currency USD
-    // Example: {"apiKey":"...","edahabNumber":"659096237","amount":"17.99","agentCode":"759479","currency":"USD"}
+    // ReturnUrl: where E-Dahab redirects after payment (our /pay/return page)
+    // Example: {"apiKey":"...","edahabNumber":"659096237","amount":"17.99","agentCode":"759479","currency":"USD","ReturnUrl":"https://yoursite.com/pay/return"}
     const requestBody = {
       apiKey,
       edahabNumber: phone,
       amount: amount.toFixed(2),
       agentCode,
       currency: "USD",
+      ReturnUrl: returnUrl,
     };
 
     const bodyString = JSON.stringify(requestBody);
