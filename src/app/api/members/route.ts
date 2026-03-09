@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
         referredBy: { select: { id: true, name: true, referralCode: true } },
         referrals: { select: { id: true, name: true, phone: true, referralCode: true, createdAt: true } },
         membershipPayments: { select: { id: true, amount: true, paymentMethod: true, paidAt: true } },
+        referralCommissions: { select: { amount: true } },
       },
       orderBy: { createdAt: "desc" },
     });

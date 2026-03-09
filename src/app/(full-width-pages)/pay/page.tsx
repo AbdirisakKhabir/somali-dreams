@@ -457,15 +457,7 @@ function PayPageContent() {
           </div>
         </div>
 
-        <p className="mt-8 text-center text-sm text-[#5c5c5c] dark:text-gray-500">
-          Already a member?{" "}
-          <a
-            href={MEMBERS_AREA_URL}
-            className="font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400"
-          >
-            Go to Members Area
-          </a>
-        </p>
+        
       </div>
     </div>
   );

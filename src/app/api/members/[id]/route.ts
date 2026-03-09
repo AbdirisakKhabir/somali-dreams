@@ -23,6 +23,11 @@ export async function GET(
         referredBy: { select: { id: true, name: true, phone: true, referralCode: true } },
         referrals: { select: { id: true, name: true, phone: true, referralCode: true, createdAt: true } },
         membershipPayments: { orderBy: { paidAt: "desc" } },
+        referralCommissions: {
+          orderBy: { createdAt: "desc" },
+          take: 50,
+          include: { referredMember: { select: { id: true, name: true, referralCode: true } } },
+        },
       },
     });
 

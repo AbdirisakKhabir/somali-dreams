@@ -55,21 +55,39 @@ model RolePermission {
 
 // Member = customer who paid to join Somali Dreams
 model Member {
-  id           Int                @id @default(autoincrement())
-  name         String
-  phone        String
-  email        String?
-  referralCode String             @unique // Unique code they share with friends (e.g. SD-ABC123)
-  referredById Int?               // Who referred this member (friend's referral code)
-  referredBy   Member?            @relation("MemberReferrals", fields: [referredById], references: [id], onDelete: SetNull)
-  referrals    Member[]           @relation("MemberReferrals") // Friends who used this member's referral code
-  status       String             @default("Active") // Active, Inactive, Pending
-  membershipPayments MembershipPayment[]
-  paymentInvoices   PaymentInvoice[]
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  id                   Int                @id @default(autoincrement())
+  name                 String
+  phone                String
+  email                String?
+  referralCode         String             @unique // Unique code they share with friends (e.g. SD-ABC123)
+  referredById         Int?               // Who referred this member (friend's referral code)
+  referredBy           Member?            @relation("MemberReferrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals            Member[]           @relation("MemberReferrals") // Friends who used this member's referral code
+  status               String             @default("Active") // Active, Inactive, Pending
+  membershipStartDate  DateTime?          // When current membership started
+  membershipEndDate    DateTime?          // When membership expires (status -> Pending)
+  membershipPayments   MembershipPayment[]
+  paymentInvoices      PaymentInvoice[]
+  referralCommissions       ReferralCommission[] @relation("ReferralCommissionsAsReferrer")
+  referralCommissionsFrom   ReferralCommission[] @relation("ReferralCommissionsAsReferred")
+  createdAt                 DateTime             @default(now())
+  updatedAt            DateTime           @updatedAt
 
   @@map("members")
+}
+
+// $0.50 commission when a referred member (Mr B) pays - paid to referrer (Mr A)
+model ReferralCommission {
+  id                    Int      @id @default(autoincrement())
+  referrerId            Int      // Mr A - who gets the commission
+  referrer              Member   @relation("ReferralCommissionsAsReferrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referredMemberId      Int      // Mr B - who paid (triggered the commission)
+  referredMember        Member   @relation("ReferralCommissionsAsReferred", fields: [referredMemberId], references: [id], onDelete: Cascade)
+  amount                Float    @default(0.5) // $0.50 per referral
+  membershipPaymentId  Int?     // Link to the payment that triggered this
+  createdAt             DateTime @default(now())
+
+  @@map("referral_commissions")
 }
 
 // Payment record - one per membership purchase
@@ -90,18 +108,19 @@ model MembershipPayment {
 
 // Links E-Dahab invoice - stores registration data until payment succeeds
 model PaymentInvoice {
-  id                      Int      @id @default(autoincrement())
-  memberId                Int?     // Set when payment succeeds
-  member                  Member?  @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  invoiceId               String   @unique // E-Dahab InvoiceId (UUID string)
-  amount                  Float    @default(0)
-  status                  String   @default("Pending") // Pending, Success, Failed
+  id                       Int      @id @default(autoincrement())
+  memberId                 Int?     // Set when payment succeeds
+  member                   Member?  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  invoiceId                String   @unique // E-Dahab InvoiceId (UUID string)
+  amount                   Float    @default(0)
+  status                   String   @default("Pending") // Pending, Success, Failed
+  plan                     String?  // "monthly" | "yearly" - for membership duration
   // Registration data - stored before payment, used to create Member on success
-  registrationName        String
-  registrationPhone       String
-  registrationWhatsapp    String?  // WhatsApp number (if different from phone)
-  registrationReferralCode String? // Friend's referral code they used
-  createdAt               DateTime @default(now())
+  registrationName         String
+  registrationPhone        String
+  registrationWhatsapp     String?  // WhatsApp number (if different from phone)
+  registrationReferralCode String?  // Friend's referral code they used
+  createdAt                DateTime @default(now())
 
   @@map("payment_invoices")
 }

@@ -173,11 +173,14 @@ export async function POST(req: NextRequest) {
     const regPhoneFull = regPhone.startsWith("252") ? regPhone : "252" + regPhone;
     const waDigits = whatsappPhone?.trim() ? String(whatsappPhone).replace(/\D/g, "") : null;
 
+    const planValue = typeof plan === "string" && (plan === "monthly" || plan === "yearly") ? plan : "monthly";
+
     await prisma.paymentInvoice.create({
       data: {
         invoiceId,
         amount,
         status: "Pending",
+        plan: planValue,
         registrationName: name.trim(),
         registrationPhone: regPhoneFull,
         registrationWhatsapp: waDigits && waDigits !== regPhoneFull ? waDigits : null,

@@ -16,10 +16,19 @@ type Member = {
   email: string | null;
   referralCode: string;
   status: string;
+  membershipStartDate: string | null;
+  membershipEndDate: string | null;
   createdAt: string;
   referredBy: { id: number; name: string; phone: string; referralCode: string } | null;
   referrals: { id: number; name: string; phone: string; referralCode: string; createdAt: string }[];
   membershipPayments: { id: number; amount: number; paymentMethod: string; paidAt: string }[];
+  referralCommissions: {
+    id: number;
+    amount: number;
+    referredMemberId: number;
+    createdAt: string;
+    referredMember?: { id: number; name: string; referralCode: string };
+  }[];
 };
 
 export default function MemberDetailPage() {
@@ -147,6 +156,18 @@ export default function MemberDetailPage() {
                 </Badge>
               </dd>
             </div>
+            {member.membershipStartDate && (
+              <div>
+                <dt className="text-sm text-gray-500 dark:text-gray-400">Membership Start</dt>
+                <dd>{new Date(member.membershipStartDate).toLocaleDateString()}</dd>
+              </div>
+            )}
+            {member.membershipEndDate && (
+              <div>
+                <dt className="text-sm text-gray-500 dark:text-gray-400">Membership End</dt>
+                <dd>{new Date(member.membershipEndDate).toLocaleDateString()}</dd>
+              </div>
+            )}
             {member.referredBy && (
               <div>
                 <dt className="text-sm text-gray-500 dark:text-gray-400">Referred By</dt>
@@ -160,6 +181,12 @@ export default function MemberDetailPage() {
                 </dd>
               </div>
             )}
+            <div>
+              <dt className="text-sm text-gray-500 dark:text-gray-400">Commission Received</dt>
+              <dd className="font-semibold text-emerald-600 dark:text-emerald-400">
+                ${(member.referralCommissions?.reduce((s, c) => s + c.amount, 0) ?? 0).toFixed(2)}
+              </dd>
+            </div>
           </dl>
         </div>
 
@@ -194,6 +221,47 @@ export default function MemberDetailPage() {
           )}
         </div>
       </div>
+
+      {member.referralCommissions && member.referralCommissions.length > 0 && (
+        <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/5">
+          <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+            Commission History
+          </h3>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 dark:border-gray-700">
+                <th className="py-2 text-left font-medium text-gray-500">Date</th>
+                <th className="py-2 text-left font-medium text-gray-500">From</th>
+                <th className="py-2 text-left font-medium text-gray-500">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {member.referralCommissions.map((c) => (
+                <tr key={c.id} className="border-b border-gray-100 dark:border-gray-800">
+                  <td className="py-2">
+                    {new Date(c.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="py-2">
+                    {c.referredMember ? (
+                      <Link
+                        href={`/members/${c.referredMember.id}`}
+                        className="text-brand-500 hover:underline"
+                      >
+                        {c.referredMember.name} ({c.referredMember.referralCode})
+                      </Link>
+                    ) : (
+                      `Member #${c.referredMemberId}`
+                    )}
+                  </td>
+                  <td className="py-2 font-medium text-emerald-600 dark:text-emerald-400">
+                    ${c.amount.toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/5">
         <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">

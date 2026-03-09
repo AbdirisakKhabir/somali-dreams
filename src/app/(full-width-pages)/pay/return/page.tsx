@@ -3,20 +3,14 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 
-const SUCCESS_REDIRECT_URL =
-  process.env.NEXT_PUBLIC_PAY_SUCCESS_URL ?? "https://somalidreams.com";
-
 export default function PayReturnPage() {
   const [status, setStatus] = useState<"loading" | "success" | "pending" | "error">("loading");
   const [message, setMessage] = useState("");
 
-  // Redirect to SomaliDreams.com when payment is successful
+  // Redirect to success page when payment is successful
   useEffect(() => {
     if (status !== "success") return;
-    const timer = setTimeout(() => {
-      window.location.href = SUCCESS_REDIRECT_URL;
-    }, 2000);
-    return () => clearTimeout(timer);
+    window.location.href = "/pay/success";
   }, [status]);
 
   useEffect(() => {
@@ -58,7 +52,7 @@ export default function PayReturnPage() {
         })
         .catch(() => {
           setStatus("error");
-          setMessage("Something went wrong. Please contact support.");
+          setMessage("Something went wrong. Please contact support with your payment details.");
         });
     };
 
@@ -122,37 +116,30 @@ export default function PayReturnPage() {
             )}
 
             {status === "success" && (
-              <div>
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-500/20">
-                  <svg
-                    className="h-8 w-8 text-emerald-600 dark:text-emerald-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                </div>
-                <h2 className="text-xl font-semibold text-[#1a1a1a] dark:text-white">
-                  Welcome to Somali Dreams!
-                </h2>
-                <p className="mt-2 text-[#5c5c5c] dark:text-gray-400">
-                  {message}
-                </p>
-                <p className="mt-4 text-sm text-[#5c5c5c] dark:text-gray-500">
-                  Your referral code has been sent to your phone via WhatsApp. Redirecting you to Somali Dreams...
-                </p>
-                <a
-                  href={SUCCESS_REDIRECT_URL}
-                  className="mt-6 inline-block w-full rounded-xl bg-amber-500 py-3.5 font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:bg-amber-600"
+              <div className="flex flex-col items-center gap-4">
+                <svg
+                  className="h-12 w-12 animate-spin text-emerald-500"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
                 >
-                  Go to Somali Dreams
-                </a>
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+                <p className="text-[#5c5c5c] dark:text-gray-400">
+                  Payment confirmed! Redirecting to success page...
+                </p>
               </div>
             )}
 

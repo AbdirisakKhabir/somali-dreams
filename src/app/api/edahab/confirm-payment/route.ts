@@ -175,32 +175,73 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Core flow: must succeed for member to appear in list
+    // Use simple transaction - no referral_commissions or membership dates (VPS may not have migration)
     try {
       await prisma.$transaction([
-      prisma.paymentInvoice.update({
-        where: { id: pi.id },
-        data: { status: "Success", memberId },
-      }),
-      ...(pi.memberId
-        ? [
-            prisma.member.update({
-              where: { id: pi.memberId },
-              data: { status: "Active" },
-            }),
-          ]
-        : []),
-      prisma.membershipPayment.create({
-        data: {
-          memberId: memberId!,
-          amount: pi.amount || amount,
-          paymentMethod: "E-Dahab",
-          externalTransactionId: String(invoiceId),
-        },
-      }),
-    ]);
+        prisma.membershipPayment.create({
+          data: {
+            memberId: memberId!,
+            amount: pi.amount || amount,
+            paymentMethod: "E-Dahab",
+            externalTransactionId: String(invoiceId),
+          },
+        }),
+        prisma.paymentInvoice.update({
+          where: { id: pi.id },
+          data: { status: "Success", memberId },
+        }),
+      ]);
     } catch (txErr) {
-      console.error("[confirm-payment] Transaction failed:", txErr);
+      console.error("[confirm-payment] Core transaction failed:", invoiceId, txErr);
       throw txErr;
+    }
+
+    // Optional: membership dates and referral commission (may fail if migration not run on VPS)
+    const plan = pi.plan === "yearly" ? "yearly" : "monthly";
+    const startDate = new Date();
+    const endDate = new Date(startDate);
+    if (plan === "yearly") {
+      endDate.setFullYear(endDate.getFullYear() + 1);
+    } else {
+      endDate.setMonth(endDate.getMonth() + 1);
+    }
+
+    try {
+      const memberData = await prisma.member.findUnique({
+        where: { id: memberId! },
+        select: { referredById: true },
+      });
+      const referrerIdForCommission = memberData?.referredById ?? null;
+
+      const membershipPayment = await prisma.membershipPayment.findFirst({
+        where: { memberId: memberId!, externalTransactionId: String(invoiceId) },
+        orderBy: { createdAt: "desc" },
+      });
+
+      await prisma.$transaction(async (tx) => {
+        await tx.member.update({
+          where: { id: memberId! },
+          data: {
+            status: "Active",
+            membershipStartDate: startDate,
+            membershipEndDate: endDate,
+          },
+        });
+        if (referrerIdForCommission && membershipPayment) {
+          await tx.referralCommission.create({
+            data: {
+              referrerId: referrerIdForCommission,
+              referredMemberId: memberId!,
+              amount: 0.5,
+              membershipPaymentId: membershipPayment.id,
+            },
+          });
+        }
+      });
+    } catch (optErr) {
+      // Non-critical: membership dates & commission - log but don't fail
+      console.warn("[confirm-payment] Optional update failed (migration may be missing):", invoiceId, optErr);
     }
 
     const member = await prisma.member.findUnique({
@@ -233,30 +274,23 @@ export async function GET(req: NextRequest) {
         : member.phone;
 
       try {
-        const waUrl = `${baseUrl.replace(/\/$/, "")}/api/whatsapp`;
-        const waRes = await fetch(waUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            phone: waPhone,
-            template: "payment_confirmation",
-            referralCode: member.referralCode,
-            referralLink,
-            membersAreaUrl: membersUrl,
-          }),
-        });
-        const waBody = await waRes.text();
-        if (!waRes.ok) {
-          console.error("[WhatsApp] Send failed:", waRes.status, waUrl, waBody);
-        } else {
-          try {
-            const parsed = JSON.parse(waBody);
-            if (!parsed.success && !parsed.message?.includes("successfully")) {
-              console.error("[WhatsApp] API returned error:", parsed);
-            }
-          } catch {
-            // Response might not be JSON
-          }
+        const { sendWhatsAppMessage } = await import("@/lib/whatsapp");
+        const msg = `Hambalyo! Ku Soo dhawoow Somali Dreams! 🎉
+
+**Lacag bixintaada waa la aqbalay.** Waxaad hadda kamid tahay Somali Dreams.
+
+**Referral Code-kaaga:** ${member.referralCode}
+
+**Xiriirka ku wadaag asxaabtaada** – saaxiibadaada waxay heli doonaan 20% discount ah bilkii koowaad. Marka ay bixiyaan, waxaad ku heleysaa $0.50 commission:
+${referralLink}
+
+**Members Area:**
+${membersUrl}
+
+Mahadsanid! Somali Dreams`;
+        const waResult = await sendWhatsAppMessage(waPhone, msg);
+        if (!waResult.success) {
+          console.error("[WhatsApp] Send failed:", waResult.error);
         }
       } catch (waErr) {
         console.error("[WhatsApp] Send error:", waErr);
@@ -278,7 +312,10 @@ export async function GET(req: NextRequest) {
   } catch (e) {
     console.error("E-Dahab confirm payment error:", e);
     return NextResponse.json(
-      { error: "Failed to confirm payment" },
+      {
+        error:
+          "We could not complete your registration. Your payment was received. Please contact support with your payment details.",
+      },
       { status: 500 }
     );
   }

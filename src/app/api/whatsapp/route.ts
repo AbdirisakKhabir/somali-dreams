@@ -23,14 +23,14 @@ function getSomaliDreamsMessage(
   data: Record<string, string | undefined>
 ): string {
   const templates: Record<string, string> = {
-    // Sent when payment is confirmed - includes referral link for friends to register
+    // Sent when payment is confirmed - includes referral link (friends get 20% off first month)
     payment_confirmation: `Hambalyo! Ku Soo dhawoow Somali Dreams! 🎉
 
 **Lacag bixintaada waa la aqbalay.** Waxaad hadda kamid tahay Somali Dreams.
 
 **Referral Code-kaaga:** ${data.referralCode || "N/A"}
 
-**Xiriirka ku wadaag asxaabtaada** (si ay ugu biiraan Somali Dreams. Marka ay bixiyaan, waxaad ku heleysaa liiska saaxiibadaada):
+**Xiriirka ku wadaag asxaabtaada** – saaxiibadaada waxay heli doonaan 20% discount ah bilkii koowaad. Marka ay bixiyaan, waxaad ku heleysaa $0.50 commission:
 ${data.referralLink || "N/A"}
 
 **Members Area:**
@@ -51,12 +51,12 @@ ${data.membersAreaUrl || "https://somalidreams.com/members"}
 
 Mahadsanid! Somali Dreams`,
 
-    // Referral code only - when we just need to send the code
+    // Referral code only - friends get 20% off first month, referrer gets $0.50
     referral_code: `Somali Dreams - Referral Code-kaaga
 
 **Code-kaaga:** ${data.referralCode || "N/A"}
 
-**Xiriirka ku wadaag asxaabtaada** (si ay ugu biiraan Somali Dreams):
+**Xiriirka ku wadaag asxaabtaada** – 20% discount bilkii koowaad. Marka ay bixiyaan waxaad ku heleysaa $0.50:
 ${data.referralLink || "N/A"}
 
 Mahadsanid! Somali Dreams`,

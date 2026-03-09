@@ -27,6 +27,7 @@ type MemberRow = {
   referredBy: { name: string; referralCode: string } | null;
   referrals: { id: number; name: string; phone: string; referralCode: string }[];
   membershipPayments: { amount: number; paymentMethod: string; paidAt: string }[];
+  referralCommissions: { amount: number }[];
 };
 
 export default function MembersPage() {
@@ -400,6 +401,7 @@ export default function MembersPage() {
                 <TableCell isHeader>Referral Code</TableCell>
                 <TableCell isHeader>Referred By</TableCell>
                 <TableCell isHeader>Referrals</TableCell>
+                <TableCell isHeader>Commission</TableCell>
                 <TableCell isHeader>Status</TableCell>
                 <TableCell isHeader className="text-right">Actions</TableCell>
               </TableRow>
@@ -442,6 +444,9 @@ export default function MembersPage() {
                     ) : (
                       "0"
                     )}
+                  </TableCell>
+                  <TableCell className="font-medium text-emerald-600 dark:text-emerald-400">
+                    ${(m.referralCommissions?.reduce((s, c) => s + c.amount, 0) ?? 0).toFixed(2)}
                   </TableCell>
                   <TableCell>
                     <Badge
