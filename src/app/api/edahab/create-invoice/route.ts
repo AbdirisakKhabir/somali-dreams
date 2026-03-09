@@ -142,9 +142,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Request body - plan amounts ($1.99, $17.99) are USD; must use currency USD
-    // ReturnUrl: where E-Dahab redirects after payment (our /pay/return page)
-    // Example: {"apiKey":"...","edahabNumber":"659096237","amount":"17.99","agentCode":"759479","currency":"USD","ReturnUrl":"https://yoursite.com/pay/return"}
+    // Request body - format that works with E-Dahab API
     const requestBody = {
       apiKey,
       edahabNumber: phone,
@@ -178,11 +176,21 @@ export async function POST(req: NextRequest) {
     };
 
     if (data.StatusCode !== 0) {
-      const msg =
+      const rawMsg =
         data.StatusDescription ||
         data.ValidationErrors ||
         `E-Dahab error: ${data.StatusCode}`;
-      console.error("[create-invoice] E-Dahab rejected:", { StatusCode: data.StatusCode, StatusDescription: data.StatusDescription, ValidationErrors: data.ValidationErrors, amount: requestBody.amount, currency: requestBody.currency });
+      console.error("[create-invoice] E-Dahab rejected:", {
+        StatusCode: data.StatusCode,
+        StatusDescription: data.StatusDescription,
+        ValidationErrors: data.ValidationErrors,
+        requestKeys: Object.keys(requestBody),
+      });
+      // Make generic "Validation Error" more helpful
+      const msg =
+        rawMsg === "Validation Error"
+          ? "Payment provider validation failed. Please check your E-Dahab number (6XXXXXXX) and try again."
+          : rawMsg;
       return NextResponse.json({ error: msg }, { status: 400 });
     }
 
