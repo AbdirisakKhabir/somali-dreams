@@ -143,15 +143,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Request body - match Postman collection (apiKey, edahabNumber, amount, agentCode, currency)
-    // returnUrl: where E-Dahab redirects after payment - full URL e.g. https://yoursite.com/pay/return
+    // Request body - match Postman collection + ReturnUrl (PascalCase per E-Dahab docs)
     const requestBody = {
       apiKey,
       edahabNumber: phone,
       amount: amount.toFixed(2),
       agentCode,
       currency: "USD",
-      returnUrl,
+      ReturnUrl: returnUrl,
     };
 
     const bodyString = JSON.stringify(requestBody);
@@ -225,8 +224,8 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // E-Dahab does not redirect to our returnUrl - use cron /api/cron/process-pending-payments to create members
-    const paymentUrl = `${PAYMENT_URL}?invoiceId=${encodeURIComponent(invoiceId)}`;
+    // Include returnUrl in payment URL - E-Dahab may use it for redirect after payment
+    const paymentUrl = `${PAYMENT_URL}?invoiceId=${encodeURIComponent(invoiceId)}&returnUrl=${encodeURIComponent(returnUrl)}`;
 
     return NextResponse.json({
       success: true,

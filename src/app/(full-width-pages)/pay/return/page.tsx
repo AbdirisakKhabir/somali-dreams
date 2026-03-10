@@ -17,7 +17,7 @@ export default function PayReturnPage() {
 
   const runCheckPayment = (invoiceId: string) => {
     let retryCount = 0;
-    const maxRetries = 4;
+    const maxRetries = 120; // ~10 minutes at 5s interval
 
     const checkPayment = () => {
       fetch(`/api/edahab/confirm-payment?invoiceId=${encodeURIComponent(invoiceId.trim())}`)
@@ -31,10 +31,10 @@ export default function PayReturnPage() {
             }
           } else if ((data.status === "Pending" || data.message?.toLowerCase().includes("pending")) && retryCount < maxRetries) {
             retryCount += 1;
-            setTimeout(() => checkPayment(), 2000 * retryCount);
+            setTimeout(() => checkPayment(), 5000);
           } else if (data.status === "Pending" || data.message?.toLowerCase().includes("pending")) {
             setStatus("pending");
-            setMessage("Your payment is still being processed. We will notify you when it is complete.");
+            setMessage("Your payment is still pending. Keep this page open, we will keep checking.");
           } else {
             setStatus("error");
             setMessage(data.error || data.message || "Payment could not be confirmed.");
@@ -58,7 +58,7 @@ export default function PayReturnPage() {
 
     if (!invoiceId?.trim()) {
       setStatus("error");
-      setMessage("No invoice ID in URL. If you just paid, E-Dahab may have redirected to the wrong page.");
+      setMessage("No invoice ID in URL. If you just paid on E-Dahab, copy the Invoice ID from your browser URL (the part after invoiceId=) and enter it below.");
       setShowManualCheck(true);
       return;
     }
@@ -209,7 +209,7 @@ export default function PayReturnPage() {
                 {showManualCheck && (
                   <div className="mt-6 space-y-3">
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Already paid? Enter your Invoice ID to verify:
+                      Enter your Invoice ID (from the E-Dahab URL after invoiceId=) to verify and complete registration:
                     </p>
                     <form
                       onSubmit={(e) => {

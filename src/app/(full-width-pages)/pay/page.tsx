@@ -119,8 +119,18 @@ function PayPageContent() {
       });
       const invoiceData = await invoiceRes.json();
 
-      if (invoiceRes.ok && invoiceData.paymentUrl) {
-        window.location.href = invoiceData.paymentUrl;
+      if (invoiceRes.ok && invoiceData.paymentUrl && invoiceData.invoiceId) {
+        const paymentUrl = String(invoiceData.paymentUrl);
+        const invoiceId = String(invoiceData.invoiceId);
+
+        // Open E-Dahab in a new tab and keep this tab on our return page
+        // so we can verify payment and create the member without relying on redirect.
+        const opened = window.open(paymentUrl, "_blank", "noopener,noreferrer");
+        window.location.href = `/pay/return?invoiceId=${encodeURIComponent(invoiceId)}`;
+        if (!opened) {
+          // Popup blocked - fallback to direct redirect.
+          window.location.href = paymentUrl;
+        }
         return;
       }
 
