@@ -8,6 +8,7 @@ export default function PayReturnPage() {
   const [message, setMessage] = useState("");
   const [manualInvoiceId, setManualInvoiceId] = useState("");
   const [showManualCheck, setShowManualCheck] = useState(false);
+  const [payUrl, setPayUrl] = useState("");
 
   // Redirect to success page when payment is successful
   useEffect(() => {
@@ -55,6 +56,8 @@ export default function PayReturnPage() {
       params.get("invoiceId") ??
       params.get("InvoiceId") ??
       params.get("invoice_id");
+    const payUrlParam = params.get("payUrl") ?? "";
+    if (payUrlParam) setPayUrl(payUrlParam);
 
     if (!invoiceId?.trim()) {
       setStatus("error");
@@ -95,6 +98,18 @@ export default function PayReturnPage() {
 
         <div className="overflow-hidden rounded-2xl bg-white dark:bg-white/5 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.08),0_8px_48px_-8px_rgba(0,0,0,0.12)] dark:shadow-none ring-1 ring-black/5 dark:ring-white/10">
           <div className="p-8 text-center">
+            {payUrl && status !== "success" && (
+              <div className="mb-4">
+                <a
+                  href={payUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600"
+                >
+                  Open payment page
+                </a>
+              </div>
+            )}
             {status === "loading" && (
               <div className="flex flex-col items-center gap-4">
                 <svg

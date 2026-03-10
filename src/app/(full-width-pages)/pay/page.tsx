@@ -92,6 +92,10 @@ function PayPageContent() {
       setError("Please enter your WhatsApp number");
       return;
     }
+    // Open tab immediately in direct user gesture to avoid popup blockers.
+    const paymentTab = typeof window !== "undefined"
+      ? window.open("", "_blank", "noopener,noreferrer")
+      : null;
     setLoading(true);
     try {
       const phoneFull = phone.startsWith("252") ? phone : "252" + phone.replace(/\D/g, "");
@@ -122,20 +126,20 @@ function PayPageContent() {
       if (invoiceRes.ok && invoiceData.paymentUrl && invoiceData.invoiceId) {
         const paymentUrl = String(invoiceData.paymentUrl);
         const invoiceId = String(invoiceData.invoiceId);
+        const returnUrl = `/pay/return?invoiceId=${encodeURIComponent(invoiceId)}&payUrl=${encodeURIComponent(paymentUrl)}`;
 
-        // Open E-Dahab in a new tab and keep this tab on our return page
-        // so we can verify payment and create the member without relying on redirect.
-        const opened = window.open(paymentUrl, "_blank", "noopener,noreferrer");
-        window.location.href = `/pay/return?invoiceId=${encodeURIComponent(invoiceId)}`;
-        if (!opened) {
-          // Popup blocked - fallback to direct redirect.
-          window.location.href = paymentUrl;
+        // Keep this tab on our return page so member creation can complete here.
+        if (paymentTab) {
+          paymentTab.location.href = paymentUrl;
         }
+        window.location.href = returnUrl;
         return;
       }
 
+      if (paymentTab && !paymentTab.closed) paymentTab.close();
       setError(invoiceData.error || "Payment could not be started. Please try again.");
     } catch (err) {
+      if (paymentTab && !paymentTab.closed) paymentTab.close();
       setError((err as Error).message);
     } finally {
       setLoading(false);
@@ -172,7 +176,7 @@ function PayPageContent() {
             />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-[#1a1a1a] dark:text-white sm:text-4xl">
-            Somali Dreams Payment Page
+            Membership Payment
           </h1>
           <p className="mt-3 text-base text-[#5c5c5c] dark:text-gray-400">
             Join our community – register and pay securely
