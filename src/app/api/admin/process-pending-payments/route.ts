@@ -17,13 +17,6 @@ export async function POST(req: NextRequest) {
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const hasPermission =
-      auth.permissions?.includes("members.create") ||
-      auth.permissions?.includes("members.view") ||
-      auth.permissions?.includes("dashboard.view");
-    if (!hasPermission) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
 
     const apiKey = process.env.EDAHAB_API_KEY;
     const secret = process.env.EDAHAB_SECRET;
