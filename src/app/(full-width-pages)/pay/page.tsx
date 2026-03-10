@@ -172,7 +172,7 @@ function PayPageContent() {
             />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-[#1a1a1a] dark:text-white sm:text-4xl">
-            Somali Dreams
+            Somali Dreams Payment Page
           </h1>
           <p className="mt-3 text-base text-[#5c5c5c] dark:text-gray-400">
             Join our community – register and pay securely
