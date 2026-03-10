@@ -128,9 +128,13 @@ Mahadsanid! Somali Dreams`;
       results,
     });
   } catch (e) {
-    console.error("[process-pending-payments] Error:", e);
+    const err = e as Error;
+    console.error("[process-pending-payments] Error:", err);
     return NextResponse.json(
-      { error: "Failed to process pending payments" },
+      {
+        error: "Failed to process pending payments",
+        detail: err.message || String(e),
+      },
       { status: 500 }
     );
   }

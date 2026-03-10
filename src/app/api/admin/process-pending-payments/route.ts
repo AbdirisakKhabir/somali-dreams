@@ -39,25 +39,29 @@ export async function POST(req: NextRequest) {
     const results: { invoiceId: string; status: string }[] = [];
 
     for (const pi of pending) {
-      const requestBody = { apiKey, invoiceId: pi.invoiceId };
-      const bodyString = JSON.stringify(requestBody);
-      const minifiedBody = bodyString.replace(/\s/g, "");
-      const hash = crypto
-        .createHash("sha256")
-        .update(minifiedBody + secret)
-        .digest("hex");
+      let data: { StatusCode?: number; InvoiceStatus?: string; StatusDescription?: string };
+      try {
+        const requestBody = { apiKey, invoiceId: pi.invoiceId };
+        const bodyString = JSON.stringify(requestBody);
+        const minifiedBody = bodyString.replace(/\s/g, "");
+        const hash = crypto
+          .createHash("sha256")
+          .update(minifiedBody + secret)
+          .digest("hex");
 
-      const response = await fetch(`${EDAHAB_CHECK_URL}?hash=${hash}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: bodyString,
-      });
+        const response = await fetch(`${EDAHAB_CHECK_URL}?hash=${hash}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: bodyString,
+        });
 
-      const data = (await response.json()) as {
-        StatusCode?: number;
-        InvoiceStatus?: string;
-        StatusDescription?: string;
-      };
+        data = (await response.json()) as { StatusCode?: number; InvoiceStatus?: string; StatusDescription?: string };
+      } catch (fetchErr) {
+        const err = fetchErr as Error;
+        console.error("[process-pending-payments] E-Dahab fetch error:", pi.invoiceId, err);
+        results.push({ invoiceId: pi.invoiceId, status: `fetch_error: ${err.message}` });
+        continue;
+      }
 
       if (data.StatusCode !== 0) {
         results.push({ invoiceId: pi.invoiceId, status: "check_failed" });
@@ -126,9 +130,13 @@ Mahadsanid! Somali Dreams`;
       results,
     });
   } catch (e) {
-    console.error("[process-pending-payments] Error:", e);
+    const err = e as Error;
+    console.error("[process-pending-payments] Error:", err);
     return NextResponse.json(
-      { error: "Failed to process pending payments" },
+      {
+        error: "Failed to process pending payments",
+        detail: err.message || String(e),
+      },
       { status: 500 }
     );
   }

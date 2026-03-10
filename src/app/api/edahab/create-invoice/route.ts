@@ -55,7 +55,6 @@ export async function POST(req: NextRequest) {
     const secret = process.env.EDAHAB_SECRET;
     const agentCode = process.env.EDAHAB_AGENT_CODE;
     const returnUrl = getReturnUrl(req);
-    console.log("[create-invoice] ReturnUrl for E-Dahab:", returnUrl);
 
     if (!apiKey || !secret || !agentCode) {
       return NextResponse.json(
@@ -144,14 +143,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Request body - format that works with E-Dahab API
+    // Request body - match Postman collection (apiKey, edahabNumber, amount, agentCode, currency)
+    // returnUrl: where E-Dahab redirects after payment - full URL e.g. https://yoursite.com/pay/return
     const requestBody = {
       apiKey,
       edahabNumber: phone,
       amount: amount.toFixed(2),
       agentCode,
       currency: "USD",
-      ReturnUrl: returnUrl,
+      returnUrl,
     };
 
     const bodyString = JSON.stringify(requestBody);

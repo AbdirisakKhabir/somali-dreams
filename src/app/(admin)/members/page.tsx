@@ -280,7 +280,8 @@ export default function MembersPage() {
       } else if (res.ok) {
         alert(data.checked === 0 ? "No pending payments." : "No new paid invoices found.");
       } else {
-        alert(data.error || "Failed");
+        const errMsg = data.detail ? `${data.error}: ${data.detail}` : (data.error || "Failed");
+        alert(errMsg);
       }
     } catch {
       alert("Failed to process payments");

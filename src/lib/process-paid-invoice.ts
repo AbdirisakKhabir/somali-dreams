@@ -40,58 +40,60 @@ export async function processPaidInvoice(
   invoiceId: string,
   amount: number
 ): Promise<{ success: boolean; memberId?: number; error?: string }> {
-  const pi = await prisma.paymentInvoice.findUnique({
-    where: { invoiceId },
-  });
-
-  if (!pi) {
-    return { success: false, error: "Invoice not found" };
-  }
-
-  if (pi.status === "Success" && pi.memberId) {
-    return { success: true, memberId: pi.memberId };
-  }
-
-  if (!pi.registrationName?.trim() || !pi.registrationPhone?.trim()) {
-    return { success: false, error: "Missing registration data" };
-  }
-
-  let memberId = pi.memberId;
-  if (!memberId) {
-    const referralCode = await ensureUniqueReferralCode();
-    const referredById = await findReferrerByCode(pi.registrationReferralCode ?? "");
-
-    const newMember = await prisma.member.create({
-      data: {
-        name: pi.registrationName.trim(),
-        phone: pi.registrationPhone.trim(),
-        referralCode,
-        referredById: referredById ?? undefined,
-        status: "Active",
-      },
-    });
-    memberId = newMember.id;
-  }
-
   try {
-    await prisma.$transaction([
-      prisma.membershipPayment.create({
+    const pi = await prisma.paymentInvoice.findUnique({
+      where: { invoiceId },
+    });
+
+    if (!pi) {
+      return { success: false, error: "Invoice not found" };
+    }
+
+    if (pi.status === "Success" && pi.memberId) {
+      return { success: true, memberId: pi.memberId };
+    }
+
+    if (!pi.registrationName?.trim() || !pi.registrationPhone?.trim()) {
+      return { success: false, error: "Missing registration data" };
+    }
+
+    let memberId = pi.memberId;
+    if (!memberId) {
+      const referralCode = await ensureUniqueReferralCode();
+      const referredById = await findReferrerByCode(pi.registrationReferralCode ?? "");
+
+      const newMember = await prisma.member.create({
         data: {
-          memberId: memberId!,
-          amount: pi.amount || amount,
-          paymentMethod: "E-Dahab",
-          externalTransactionId: String(invoiceId),
+          name: pi.registrationName.trim(),
+          phone: pi.registrationPhone.trim(),
+          referralCode,
+          referredById: referredById ?? undefined,
+          status: "Active",
         },
-      }),
-      prisma.paymentInvoice.update({
-        where: { id: pi.id },
-        data: { status: "Success", memberId },
-      }),
-    ]);
-  } catch (txErr) {
-    console.error("[process-paid-invoice] Transaction failed:", invoiceId, txErr);
-    return { success: false, error: String(txErr) };
-  }
+      });
+      memberId = newMember.id;
+    }
+
+    try {
+      await prisma.$transaction([
+        prisma.membershipPayment.create({
+          data: {
+            memberId: memberId!,
+            amount: pi.amount || amount,
+            paymentMethod: "E-Dahab",
+            externalTransactionId: String(invoiceId),
+          },
+        }),
+        prisma.paymentInvoice.update({
+          where: { id: pi.id },
+          data: { status: "Success", memberId },
+        }),
+      ]);
+    } catch (txErr) {
+      const err = txErr as Error;
+      console.error("[process-paid-invoice] Transaction failed:", invoiceId, err);
+      return { success: false, error: err.message || String(txErr) };
+    }
 
   // Optional: membership dates and referral commission
   const plan = pi.plan === "yearly" ? "yearly" : "monthly";
@@ -140,4 +142,9 @@ export async function processPaidInvoice(
   }
 
   return { success: true, memberId: memberId! };
+  } catch (e) {
+    const err = e as Error;
+    console.error("[process-paid-invoice] Error:", invoiceId, err);
+    return { success: false, error: err.message || String(e) };
+  }
 }
