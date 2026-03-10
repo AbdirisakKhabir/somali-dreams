@@ -225,8 +225,8 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Include returnUrl in payment URL - some E-Dahab flows use it for redirect after payment
-    const paymentUrl = `${PAYMENT_URL}?invoiceId=${encodeURIComponent(invoiceId)}&returnUrl=${encodeURIComponent(returnUrl)}`;
+    // E-Dahab does not redirect to our returnUrl - use cron /api/cron/process-pending-payments to create members
+    const paymentUrl = `${PAYMENT_URL}?invoiceId=${encodeURIComponent(invoiceId)}`;
 
     return NextResponse.json({
       success: true,

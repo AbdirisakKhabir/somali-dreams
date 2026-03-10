@@ -58,6 +58,7 @@ export default function MembersPage() {
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
+  const [processingPayments, setProcessingPayments] = useState(false);
 
   const canView = hasPermission("members.view") || hasPermission("dashboard.view");
   const canCreate = hasPermission("members.create");
@@ -266,6 +267,28 @@ export default function MembersPage() {
     setMessageModal(true);
   }
 
+  async function handleProcessPendingPayments() {
+    setProcessingPayments(true);
+    try {
+      const res = await authFetch("/api/admin/process-pending-payments", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (res.ok && data.processed > 0) {
+        await loadMembers();
+        alert(`Processed ${data.processed} payment(s). Members created.`);
+      } else if (res.ok) {
+        alert(data.checked === 0 ? "No pending payments." : "No new paid invoices found.");
+      } else {
+        alert(data.error || "Failed");
+      }
+    } catch {
+      alert("Failed to process payments");
+    } finally {
+      setProcessingPayments(false);
+    }
+  }
+
   if (!canView) {
     return (
       <div>
@@ -292,6 +315,14 @@ export default function MembersPage() {
           >
             Payment Page →
           </a>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleProcessPendingPayments}
+            disabled={processingPayments}
+          >
+            {processingPayments ? "Processing..." : "Process pending payments"}
+          </Button>
           {selectedCount > 0 && (
             <Button
               startIcon={<PaperPlaneIcon />}

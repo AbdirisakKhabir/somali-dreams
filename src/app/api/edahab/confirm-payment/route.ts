@@ -1,43 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { processPaidInvoice } from "@/lib/process-paid-invoice";
 
 const EDAHAB_CHECK_URL = "https://edahab.net/api/api/CheckInvoiceStatus";
-
-// Match format used in members API: SD- + 6 chars (e.g. SD-Q9EHQN)
-function generateReferralCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "SD-";
-  for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-}
-
-async function ensureUniqueReferralCode(): Promise<string> {
-  let code = generateReferralCode();
-  let exists = await prisma.member.findUnique({ where: { referralCode: code } });
-  while (exists) {
-    code = generateReferralCode();
-    exists = await prisma.member.findUnique({ where: { referralCode: code } });
-  }
-  return code;
-}
-
-// Find referrer by code (handles SD-Q9EHQN format, case variations)
-async function findReferrerByCode(code: string): Promise<number | undefined> {
-  const trimmed = code.trim().toUpperCase();
-  if (!trimmed) return undefined;
-  const referrer = await prisma.member.findFirst({
-    where: { referralCode: trimmed },
-  });
-  if (referrer) return referrer.id;
-  // Fallback: try exact match (in case DB has mixed case)
-  const exact = await prisma.member.findFirst({
-    where: { referralCode: code.trim() },
-  });
-  return exact?.id;
-}
 
 export async function GET(req: NextRequest) {
   try {
@@ -152,100 +118,13 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // First-time success: create Member from registration data (no member until payment succeeds)
-    let memberId = pi.memberId;
-    if (!memberId) {
-      try {
-        const referralCode = await ensureUniqueReferralCode();
-        const referredById = await findReferrerByCode(pi.registrationReferralCode ?? "");
-
-        const newMember = await prisma.member.create({
-          data: {
-            name: pi.registrationName.trim(),
-            phone: pi.registrationPhone.trim(),
-            referralCode,
-            referredById: referredById ?? undefined,
-            status: "Active",
-          },
-        });
-        memberId = newMember.id;
-      } catch (createErr) {
-        console.error("[confirm-payment] Member creation failed:", createErr);
-        throw createErr;
-      }
-    }
-
-    // Core flow: must succeed for member to appear in list
-    // Use simple transaction - no referral_commissions or membership dates (VPS may not have migration)
-    try {
-      await prisma.$transaction([
-        prisma.membershipPayment.create({
-          data: {
-            memberId: memberId!,
-            amount: pi.amount || amount,
-            paymentMethod: "E-Dahab",
-            externalTransactionId: String(invoiceId),
-          },
-        }),
-        prisma.paymentInvoice.update({
-          where: { id: pi.id },
-          data: { status: "Success", memberId },
-        }),
-      ]);
-    } catch (txErr) {
-      console.error("[confirm-payment] Core transaction failed:", invoiceId, txErr);
-      throw txErr;
-    }
-
-    // Optional: membership dates and referral commission (may fail if migration not run on VPS)
-    const plan = pi.plan === "yearly" ? "yearly" : "monthly";
-    const startDate = new Date();
-    const endDate = new Date(startDate);
-    if (plan === "yearly") {
-      endDate.setFullYear(endDate.getFullYear() + 1);
-    } else {
-      endDate.setMonth(endDate.getMonth() + 1);
-    }
-
-    try {
-      const memberData = await prisma.member.findUnique({
-        where: { id: memberId! },
-        select: { referredById: true },
-      });
-      const referrerIdForCommission = memberData?.referredById ?? null;
-
-      const membershipPayment = await prisma.membershipPayment.findFirst({
-        where: { memberId: memberId!, externalTransactionId: String(invoiceId) },
-        orderBy: { createdAt: "desc" },
-      });
-
-      await prisma.$transaction(async (tx) => {
-        await tx.member.update({
-          where: { id: memberId! },
-          data: {
-            status: "Active",
-            membershipStartDate: startDate,
-            membershipEndDate: endDate,
-          },
-        });
-        if (referrerIdForCommission && membershipPayment) {
-          await tx.referralCommission.create({
-            data: {
-              referrerId: referrerIdForCommission,
-              referredMemberId: memberId!,
-              amount: 0.5,
-              membershipPaymentId: membershipPayment.id,
-            },
-          });
-        }
-      });
-    } catch (optErr) {
-      // Non-critical: membership dates & commission - log but don't fail
-      console.warn("[confirm-payment] Optional update failed (migration may be missing):", invoiceId, optErr);
+    const processResult = await processPaidInvoice(invoiceId, amount);
+    if (!processResult.success) {
+      throw new Error(processResult.error || "Failed to process payment");
     }
 
     const member = await prisma.member.findUnique({
-      where: { id: memberId! },
+      where: { id: processResult.memberId! },
     });
 
     if (member) {
