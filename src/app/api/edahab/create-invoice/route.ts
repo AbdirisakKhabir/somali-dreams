@@ -45,7 +45,7 @@ function getReturnUrl(req: NextRequest): string {
     if (!isLocalhost(url)) return url;
   }
 
-  console.warn("[create-invoice] EDAHAB_RETURN_URL not set. Set EDAHAB_RETURN_URL=https://your-domain.com/pay/return in .env");
+  console.warn("[create-invoice] EDAHAB_RETURN_URL not set. Set EDAHAB_RETURN_URL=https://app.somalidreams.com/pay/return in .env");
   return "https://app.somalidreams.com/pay/return";
 }
 
