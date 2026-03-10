@@ -6,6 +6,8 @@ import Image from "next/image";
 export default function PayReturnPage() {
   const [status, setStatus] = useState<"loading" | "success" | "pending" | "error">("loading");
   const [message, setMessage] = useState("");
+  const [manualInvoiceId, setManualInvoiceId] = useState("");
+  const [showManualCheck, setShowManualCheck] = useState(false);
 
   // Redirect to success page when payment is successful
   useEffect(() => {
@@ -13,19 +15,7 @@ export default function PayReturnPage() {
     window.location.href = "/pay/success";
   }, [status]);
 
-  useEffect(() => {
-    const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
-    const invoiceId =
-      params.get("invoiceId") ??
-      params.get("InvoiceId") ??
-      params.get("invoice_id");
-
-    if (!invoiceId?.trim()) {
-      setStatus("error");
-      setMessage("Invalid return URL. No invoice ID. Please contact support with your payment details.");
-      return;
-    }
-
+  const runCheckPayment = (invoiceId: string) => {
     let retryCount = 0;
     const maxRetries = 4;
 
@@ -41,7 +31,7 @@ export default function PayReturnPage() {
             }
           } else if ((data.status === "Pending" || data.message?.toLowerCase().includes("pending")) && retryCount < maxRetries) {
             retryCount += 1;
-            setTimeout(checkPayment, 2000 * retryCount);
+            setTimeout(() => checkPayment(), 2000 * retryCount);
           } else if (data.status === "Pending" || data.message?.toLowerCase().includes("pending")) {
             setStatus("pending");
             setMessage("Your payment is still being processed. We will notify you when it is complete.");
@@ -57,6 +47,24 @@ export default function PayReturnPage() {
     };
 
     checkPayment();
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+    const invoiceId =
+      params.get("invoiceId") ??
+      params.get("InvoiceId") ??
+      params.get("invoice_id");
+
+    if (!invoiceId?.trim()) {
+      setStatus("error");
+      setMessage("No invoice ID in URL. If you just paid, E-Dahab may have redirected to the wrong page.");
+      setShowManualCheck(true);
+      return;
+    }
+
+    setStatus("loading");
+    runCheckPayment(invoiceId);
   }, []);
 
   return (
@@ -198,6 +206,38 @@ export default function PayReturnPage() {
                 <p className="mt-2 text-[#5c5c5c] dark:text-gray-400">
                   {message}
                 </p>
+                {showManualCheck && (
+                  <div className="mt-6 space-y-3">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Already paid? Enter your Invoice ID to verify:
+                    </p>
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (manualInvoiceId.trim()) {
+                          setStatus("loading");
+                          runCheckPayment(manualInvoiceId.trim());
+                        }
+                      }}
+                      className="flex gap-2"
+                    >
+                      <input
+                        type="text"
+                        value={manualInvoiceId}
+                        onChange={(e) => setManualInvoiceId(e.target.value)}
+                        placeholder="Invoice ID"
+                        className="flex-1 rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-700 dark:text-white"
+                      />
+                      <button
+                        type="submit"
+                        disabled={!manualInvoiceId.trim()}
+                        className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-50"
+                      >
+                        Verify
+                      </button>
+                    </form>
+                  </div>
+                )}
                 <a
                   href="/pay"
                   className="mt-6 inline-block rounded-xl bg-amber-500 py-3 px-6 font-semibold text-white hover:bg-amber-600"

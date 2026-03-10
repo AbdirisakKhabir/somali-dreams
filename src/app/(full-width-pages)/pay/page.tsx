@@ -452,6 +452,12 @@ function PayPageContent() {
                     "Register"
                   )}
                 </button>
+                <p className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                  Already paid?{" "}
+                  <a href="/pay/return" className="font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400">
+                    Verify your payment
+                  </a>
+                </p>
               </form>
             )}
           </div>

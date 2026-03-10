@@ -20,7 +20,8 @@ function getReturnUrl(req: NextRequest): string {
   // E-Dahab redirects here after payment. NEVER use localhost - user would never reach our page.
   const env = process.env.EDAHAB_RETURN_URL?.trim();
   if (env && !isLocalhost(env)) {
-    return env.includes("/pay/return") ? env : env.replace(/\/$/, "") + "/pay/return";
+    const url = env.includes("/pay/return") ? env : env.replace(/\/$/, "") + "/pay/return";
+    return url;
   }
 
   const candidates = [
@@ -44,7 +45,7 @@ function getReturnUrl(req: NextRequest): string {
     if (!isLocalhost(url)) return url;
   }
 
-  console.warn("[create-invoice] EDAHAB_RETURN_URL not set or localhost. Set EDAHAB_RETURN_URL=https://yoursite.com/pay/return for production.");
+  console.warn("[create-invoice] EDAHAB_RETURN_URL not set. Set EDAHAB_RETURN_URL=https://your-domain.com/pay/return in .env");
   return "https://app.somalidreams.com/pay/return";
 }
 
@@ -54,6 +55,7 @@ export async function POST(req: NextRequest) {
     const secret = process.env.EDAHAB_SECRET;
     const agentCode = process.env.EDAHAB_AGENT_CODE;
     const returnUrl = getReturnUrl(req);
+    console.log("[create-invoice] ReturnUrl for E-Dahab:", returnUrl);
 
     if (!apiKey || !secret || !agentCode) {
       return NextResponse.json(
@@ -223,7 +225,8 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const paymentUrl = `${PAYMENT_URL}?invoiceId=${invoiceId}`;
+    // Include returnUrl in payment URL - some E-Dahab flows use it for redirect after payment
+    const paymentUrl = `${PAYMENT_URL}?invoiceId=${encodeURIComponent(invoiceId)}&returnUrl=${encodeURIComponent(returnUrl)}`;
 
     return NextResponse.json({
       success: true,
