@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
 // Confirm payment: create payment record, set member Active, send WhatsApp
 export async function POST(
@@ -42,41 +43,29 @@ export async function POST(
     ]);
 
     // Send WhatsApp with referral code and welcome
-    let baseUrl =
-      process.env.SITE_URL?.trim() ||
-      process.env.NEXTAUTH_URL?.trim() ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
-    if (!baseUrl && typeof req.url === "string") {
-      try {
-        baseUrl = new URL(req.url).origin;
-      } catch {
-        /* ignore */
-      }
-    }
-    if (!baseUrl || baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1")) {
-      baseUrl = process.env.SOMALI_DREAMS_PAY_URL?.replace(/\/pay\/?$/, "") || "https://app.somalidreams.com";
-    }
     const membersUrl = process.env.SOMALI_DREAMS_MEMBERS_URL || "https://somalidreams.com/members";
-    const payBase = (process.env.SOMALI_DREAMS_PAY_URL || `${baseUrl.replace(/\/$/, "")}/pay`).replace(/\/$/, "");
+    const payBase = (process.env.SOMALI_DREAMS_PAY_URL || "https://app.somalidreams.com/pay").replace(/\/$/, "");
     const referralLink = member.referralCode
       ? `${payBase}?ref=${encodeURIComponent(member.referralCode)}`
       : membersUrl;
 
     try {
-      const waRes = await fetch(`${baseUrl}/api/whatsapp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone: member.phone,
-          template: "payment_confirmation",
-          referralCode: member.referralCode,
-          referralLink,
-          membersAreaUrl: membersUrl,
-        }),
-      });
-      if (!waRes.ok) {
-        const err = await waRes.json();
-        console.error("WhatsApp send failed:", err);
+      const msg = `Hambalyo! Ku Soo dhawoow Somali Dreams! 🎉
+
+Lacag bixintaada waa la ansixiyay. Xubinnimadaadu hadda waa Active.
+
+Referral Code-kaaga: ${member.referralCode}
+
+Xiriirka ku wadaag asxaabtaada (20% discount bisha 1aad):
+${referralLink}
+
+Members Area:
+${membersUrl}
+
+Mahadsanid! Somali Dreams`;
+      const waRes = await sendWhatsAppMessage(member.phone, msg);
+      if (!waRes.success) {
+        console.error("WhatsApp send failed:", waRes.error);
       }
     } catch (waErr) {
       console.error("WhatsApp send error:", waErr);
