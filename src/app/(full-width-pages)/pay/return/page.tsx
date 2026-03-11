@@ -29,12 +29,21 @@ export default function PayReturnPage() {
             if (typeof window !== "undefined") {
               sessionStorage.removeItem("somali_dreams_ref");
             }
-          } else if ((data.status === "Pending" || data.message?.toLowerCase().includes("pending")) && retryCount < maxRetries) {
+          } else if (
+            (data.status === "Pending" ||
+              data.message?.toLowerCase().includes("pending") ||
+              data.error?.toLowerCase().includes("api error")) &&
+            retryCount < maxRetries
+          ) {
             retryCount += 1;
             setTimeout(() => checkPayment(), 5000);
-          } else if (data.status === "Pending" || data.message?.toLowerCase().includes("pending")) {
+          } else if (
+            data.status === "Pending" ||
+            data.message?.toLowerCase().includes("pending") ||
+            data.error?.toLowerCase().includes("api error")
+          ) {
             setStatus("pending");
-            setMessage("Your payment is still pending. Keep this page open, we will keep checking.");
+            setMessage("Your payment is being verified. Keep this page open, we will keep checking.");
           } else {
             setStatus("error");
             setMessage(data.error || data.message || "Payment could not be confirmed.");

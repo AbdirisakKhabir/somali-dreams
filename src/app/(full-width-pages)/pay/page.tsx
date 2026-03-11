@@ -92,10 +92,6 @@ function PayPageContent() {
       setError("Please enter your WhatsApp number");
       return;
     }
-    // Open tab immediately in direct user gesture to avoid popup blockers.
-    const paymentTab = typeof window !== "undefined"
-      ? window.open("", "_blank", "noopener,noreferrer")
-      : null;
     setLoading(true);
     try {
       const phoneFull = phone.startsWith("252") ? phone : "252" + phone.replace(/\D/g, "");
@@ -128,18 +124,13 @@ function PayPageContent() {
         const invoiceId = String(invoiceData.invoiceId);
         const returnUrl = `/pay/return?invoiceId=${encodeURIComponent(invoiceId)}&payUrl=${encodeURIComponent(paymentUrl)}`;
 
-        // Keep this tab on our return page so member creation can complete here.
-        if (paymentTab) {
-          paymentTab.location.href = paymentUrl;
-        }
+        // Stay in our app and let user open payment page from /pay/return.
         window.location.href = returnUrl;
         return;
       }
 
-      if (paymentTab && !paymentTab.closed) paymentTab.close();
       setError(invoiceData.error || "Payment could not be started. Please try again.");
     } catch (err) {
-      if (paymentTab && !paymentTab.closed) paymentTab.close();
       setError((err as Error).message);
     } finally {
       setLoading(false);

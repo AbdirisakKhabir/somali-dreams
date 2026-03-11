@@ -52,10 +52,14 @@ export async function GET(req: NextRequest) {
     };
 
     if (data.StatusCode !== 0) {
-      return NextResponse.json(
-        { error: data.StatusDescription || "Failed to check invoice" },
-        { status: 400 }
-      );
+      // E-Dahab may intermittently return "Api Error" even for eventually successful payments.
+      // Treat it as a temporary state so the client can keep polling.
+      return NextResponse.json({
+        success: false,
+        paid: false,
+        status: "Pending",
+        message: "Payment verification is temporarily unavailable. Retrying...",
+      });
     }
 
     // E-Dahab returns InvoiceStatus: "Paid" and StatusDescription: "Success" when payment succeeds

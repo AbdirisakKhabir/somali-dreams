@@ -7,6 +7,38 @@ const EDAHAB_API_URL = "https://edahab.net/api/api/IssueInvoice";
 // Payment URL format from E-Dahab docs
 const PAYMENT_URL = "https://edahab.net/API/Payment";
 
+function generateReferralCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "SD-";
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+async function ensureUniqueReferralCode(): Promise<string> {
+  let code = generateReferralCode();
+  let exists = await prisma.member.findUnique({ where: { referralCode: code } });
+  while (exists) {
+    code = generateReferralCode();
+    exists = await prisma.member.findUnique({ where: { referralCode: code } });
+  }
+  return code;
+}
+
+async function findReferrerByCode(code: string): Promise<number | undefined> {
+  const trimmed = code.trim().toUpperCase();
+  if (!trimmed) return undefined;
+  const referrer = await prisma.member.findFirst({
+    where: { referralCode: trimmed },
+  });
+  if (referrer) return referrer.id;
+  const exact = await prisma.member.findFirst({
+    where: { referralCode: code.trim() },
+  });
+  return exact?.id;
+}
+
 function isLocalhost(url: string): boolean {
   try {
     const u = new URL(url);
@@ -210,8 +242,36 @@ export async function POST(req: NextRequest) {
 
     const planValue = typeof plan === "string" && (plan === "monthly" || plan === "yearly") ? plan : "monthly";
 
+    // Fallback registration strategy:
+    // Create member as Pending now, so registration is never lost even when gateway callback/verification fails.
+    let memberId: number | null = null;
+    const existingMember = await prisma.member.findFirst({
+      where: {
+        phone: regPhoneFull,
+        name: name.trim(),
+      },
+      orderBy: { id: "desc" },
+    });
+    if (existingMember) {
+      memberId = existingMember.id;
+    } else {
+      const referralCodeForMember = await ensureUniqueReferralCode();
+      const referredById = await findReferrerByCode(body.referralCode?.trim() || "");
+      const newMember = await prisma.member.create({
+        data: {
+          name: name.trim(),
+          phone: regPhoneFull,
+          referralCode: referralCodeForMember,
+          referredById: referredById ?? undefined,
+          status: "Pending",
+        },
+      });
+      memberId = newMember.id;
+    }
+
     await prisma.paymentInvoice.create({
       data: {
+        memberId,
         invoiceId,
         amount,
         status: "Pending",
