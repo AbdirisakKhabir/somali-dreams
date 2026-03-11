@@ -127,58 +127,11 @@ export async function GET(req: NextRequest) {
       where: { id: processResult.memberId! },
     });
 
-    if (member) {
-      let baseUrl =
-        process.env.NEXTAUTH_URL?.trim() ||
-        process.env.SITE_URL?.trim() ||
-        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
-      if (!baseUrl && typeof req.url === "string") {
-        try {
-          baseUrl = new URL(req.url).origin;
-        } catch {
-          baseUrl = "https://app.somalidreams";
-        }
-      }
-      const membersUrl =
-        process.env.SOMALI_DREAMS_MEMBERS_URL ||
-        "https://somalidreams.com/members";
-      const payBase = (process.env.SOMALI_DREAMS_PAY_URL || `${baseUrl.replace(/\/$/, "")}/pay`).replace(/\/$/, "");
-      const referralLink = member.referralCode
-        ? `${payBase}?ref=${encodeURIComponent(member.referralCode)}`
-        : membersUrl;
-
-      // Send WhatsApp to registration number or custom WhatsApp number
-      const waPhone = pi.registrationWhatsapp
-        ? pi.registrationWhatsapp
-        : member.phone;
-
-      try {
-        const { sendWhatsAppMessage } = await import("@/lib/whatsapp");
-        const msg = `Hambalyo! Ku Soo dhawoow Somali Dreams! 🎉
-
-**Lacag bixintaada waa la aqbalay.** Waxaad hadda kamid tahay Somali Dreams.
-
-**Referral Code-kaaga:** ${member.referralCode}
-
-**Xiriirka ku wadaag asxaabtaada** – saaxiibadaada waxay heli doonaan 20% discount ah bilkii koowaad. Marka ay bixiyaan, waxaad ku heleysaa $0.50 commission:
-${referralLink}
-
-**Members Area:**
-${membersUrl}
-
-Mahadsanid! Somali Dreams`;
-        const waResult = await sendWhatsAppMessage(waPhone, msg);
-        if (!waResult.success) {
-          console.error("[WhatsApp] Send failed:", waResult.error);
-        }
-      } catch (waErr) {
-        console.error("[WhatsApp] Send error:", waErr);
-      }
-    }
-
     return NextResponse.json({
       success: true,
       paid: true,
+      approvalPending: true,
+      message: "Payment received. Membership is pending team approval.",
       member: member
         ? {
             id: member.id,

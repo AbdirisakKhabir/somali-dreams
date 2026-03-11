@@ -68,80 +68,25 @@ export async function processPaidInvoice(
           phone: pi.registrationPhone.trim(),
           referralCode,
           referredById: referredById ?? undefined,
-          status: "Active",
+          // Payment confirmed, but membership stays Pending until team approval.
+          status: "Pending",
         },
       });
       memberId = newMember.id;
     }
 
     try {
-      await prisma.$transaction([
-        prisma.membershipPayment.create({
-          data: {
-            memberId: memberId!,
-            amount: pi.amount || amount,
-            paymentMethod: "E-Dahab",
-            externalTransactionId: String(invoiceId),
-          },
-        }),
-        prisma.paymentInvoice.update({
-          where: { id: pi.id },
-          data: { status: "Success", memberId },
-        }),
-      ]);
+      await prisma.paymentInvoice.update({
+        where: { id: pi.id },
+        data: { status: "Success", memberId },
+      });
     } catch (txErr) {
       const err = txErr as Error;
       console.error("[process-paid-invoice] Transaction failed:", invoiceId, err);
       return { success: false, error: err.message || String(txErr) };
     }
 
-  // Optional: membership dates and referral commission
-  const plan = pi.plan === "yearly" ? "yearly" : "monthly";
-  const startDate = new Date();
-  const endDate = new Date(startDate);
-  if (plan === "yearly") {
-    endDate.setFullYear(endDate.getFullYear() + 1);
-  } else {
-    endDate.setMonth(endDate.getMonth() + 1);
-  }
-
-  try {
-    const memberData = await prisma.member.findUnique({
-      where: { id: memberId! },
-      select: { referredById: true },
-    });
-    const referrerIdForCommission = memberData?.referredById ?? null;
-
-    const membershipPayment = await prisma.membershipPayment.findFirst({
-      where: { memberId: memberId!, externalTransactionId: String(invoiceId) },
-      orderBy: { createdAt: "desc" },
-    });
-
-    await prisma.$transaction(async (tx) => {
-      await tx.member.update({
-        where: { id: memberId! },
-        data: {
-          status: "Active",
-          membershipStartDate: startDate,
-          membershipEndDate: endDate,
-        },
-      });
-      if (referrerIdForCommission && membershipPayment) {
-        await tx.referralCommission.create({
-          data: {
-            referrerId: referrerIdForCommission,
-            referredMemberId: memberId!,
-            amount: 0.5,
-            membershipPaymentId: membershipPayment.id,
-          },
-        });
-      }
-    });
-  } catch (optErr) {
-    console.warn("[process-paid-invoice] Optional update failed:", invoiceId, optErr);
-  }
-
-  return { success: true, memberId: memberId! };
+    return { success: true, memberId: memberId! };
   } catch (e) {
     const err = e as Error;
     console.error("[process-paid-invoice] Error:", invoiceId, err);

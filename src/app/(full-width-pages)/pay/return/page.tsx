@@ -10,12 +10,6 @@ export default function PayReturnPage() {
   const [showManualCheck, setShowManualCheck] = useState(false);
   const [payUrl, setPayUrl] = useState("");
 
-  // Redirect to success page when payment is successful
-  useEffect(() => {
-    if (status !== "success") return;
-    window.location.href = "/pay/success";
-  }, [status]);
-
   const runCheckPayment = (invoiceId: string) => {
     let retryCount = 0;
     const maxRetries = 120; // ~10 minutes at 5s interval
@@ -26,7 +20,12 @@ export default function PayReturnPage() {
         .then((data) => {
           if (data.paid) {
             setStatus("success");
-            setMessage(data.alreadyProcessed ? "You are already a member." : "Payment confirmed! You are now a member.");
+            setMessage(
+              data.message ||
+              (data.alreadyProcessed
+                ? "Payment already confirmed. Membership is pending team approval."
+                : "Payment confirmed. Membership is pending team approval.")
+            );
             if (typeof window !== "undefined") {
               sessionStorage.removeItem("somali_dreams_ref");
             }
@@ -141,7 +140,7 @@ export default function PayReturnPage() {
             {status === "success" && (
               <div className="flex flex-col items-center gap-4">
                 <svg
-                  className="h-12 w-12 animate-spin text-emerald-500"
+                  className="h-12 w-12 text-emerald-500"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
@@ -161,7 +160,7 @@ export default function PayReturnPage() {
                   />
                 </svg>
                 <p className="text-[#5c5c5c] dark:text-gray-400">
-                  Payment confirmed! Redirecting to success page...
+                  {message}
                 </p>
               </div>
             )}

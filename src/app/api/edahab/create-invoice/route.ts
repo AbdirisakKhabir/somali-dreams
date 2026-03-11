@@ -143,15 +143,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Request body - match Postman collection + ReturnUrl (PascalCase per E-Dahab docs)
+    // Request body - match Postman collection (gateway returnUrl is not supported now)
     const requestBody = {
       apiKey,
       edahabNumber: phone,
       amount: amount.toFixed(2),
-   
       agentCode,
       currency: "USD",
-      ReturnUrl: returnUrl,
     };
 
     const bodyString = JSON.stringify(requestBody);
@@ -225,8 +223,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Include returnUrl in payment URL - E-Dahab may use it for redirect after payment
-    const paymentUrl = `${PAYMENT_URL}?invoiceId=${encodeURIComponent(invoiceId)}&returnUrl=${encodeURIComponent(returnUrl)}`;
+    const paymentUrl = `${PAYMENT_URL}?invoiceId=${encodeURIComponent(invoiceId)}`;
 
     return NextResponse.json({
       success: true,

@@ -83,41 +83,7 @@ export async function POST(req: NextRequest) {
       const result = await processPaidInvoice(pi.invoiceId, amount);
       if (result.success) {
         processed++;
-        results.push({ invoiceId: pi.invoiceId, status: "member_created" });
-
-        const member = await prisma.member.findUnique({
-          where: { id: result.memberId! },
-        });
-        if (member) {
-          const waPhone = pi.registrationWhatsapp || member.phone;
-          const membersUrl =
-            process.env.SOMALI_DREAMS_MEMBERS_URL || "https://somalidreams.com/members";
-          const payBase =
-            process.env.SOMALI_DREAMS_PAY_URL || "https://app.somalidreams.com/pay";
-          const referralLink = member.referralCode
-            ? `${payBase}?ref=${encodeURIComponent(member.referralCode)}`
-            : membersUrl;
-
-          try {
-            const { sendWhatsAppMessage } = await import("@/lib/whatsapp");
-            const msg = `Hambalyo! Ku Soo dhawoow Somali Dreams! 🎉
-
-**Lacag bixintaada waa la aqbalay.** Waxaad hadda kamid tahay Somali Dreams.
-
-**Referral Code-kaaga:** ${member.referralCode}
-
-**Xiriirka ku wadaag asxaabtaada** – saaxiibadaada waxay heli doonaan 20% discount ah bilkii koowaad. Marka ay bixiyaan, waxaad ku heleysaa $0.50 commission:
-${referralLink}
-
-**Members Area:**
-${membersUrl}
-
-Mahadsanid! Somali Dreams`;
-            await sendWhatsAppMessage(waPhone, msg);
-          } catch (waErr) {
-            console.error("[process-pending-payments] WhatsApp error:", waErr);
-          }
-        }
+        results.push({ invoiceId: pi.invoiceId, status: "member_created_pending_approval" });
       } else {
         results.push({ invoiceId: pi.invoiceId, status: `failed: ${result.error}` });
       }
