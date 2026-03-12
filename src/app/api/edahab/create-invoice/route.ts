@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
-import { getReferralDiscountFactor, getReferralDiscountRatePercent } from "@/lib/business-config";
+import {
+  getMembershipFeeAmounts,
+  getReferralDiscountFactor,
+  getReferralDiscountRatePercent,
+} from "@/lib/business-config";
 
 const EDAHAB_API_URL = "https://edahab.net/api/api/IssueInvoice";
 
@@ -114,10 +118,11 @@ export async function POST(req: NextRequest) {
     const { edahabNumber, name, phone: phoneInput, whatsappPhone, amount: requestAmount, plan, referralCode: referralCodeInput } =
       body;
 
-    // Amount from selected plan: Monthly $1.99, Yearly $17.99 (USD) - numeric only, no symbols
+    // Fetch member fee values from config for selected plan.
+    const configuredFees = getMembershipFeeAmounts();
     const planAmounts: Record<string, number> = {
-      monthly: 1.99,
-      yearly: 17.99,
+      monthly: configuredFees.monthly,
+      yearly: configuredFees.yearly,
     };
     const planAmount =
       typeof plan === "string" && planAmounts[plan]
@@ -141,6 +146,7 @@ export async function POST(req: NextRequest) {
     // Referral discount when valid referral code is used (default: 20%)
     const referralCode = referralCodeInput?.trim?.() || null;
     const discountFactor = getReferralDiscountFactor();
+    let discountApplied = false;
     if (referralCode) {
       const trimmed = referralCode.trim().toUpperCase();
       const referrer =
@@ -148,6 +154,7 @@ export async function POST(req: NextRequest) {
         (await prisma.member.findFirst({ where: { referralCode: referralCode.trim() } }));
       if (referrer) {
         amount = Math.round(amount * discountFactor * 100) / 100;
+        discountApplied = true;
       }
     }
 
@@ -294,6 +301,13 @@ export async function POST(req: NextRequest) {
       invoiceId,
       transactionId: data.TransactionId,
       invoiceStatus: data.InvoiceStatus,
+      plan: typeof plan === "string" ? plan : "monthly",
+      originalAmount:
+        planAmount !== undefined
+          ? planAmount
+          : (typeof requestAmount === "number" ? requestAmount : null),
+      finalAmount: amount,
+      discountApplied,
       referralDiscountRatePercent: getReferralDiscountRatePercent(),
     });
   } catch (e) {

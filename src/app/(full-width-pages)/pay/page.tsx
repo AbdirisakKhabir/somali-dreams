@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { getReferralDiscountRatePercent } from "@/lib/business-config";
+import { getMembershipFeeAmounts, getReferralDiscountRatePercent } from "@/lib/business-config";
 
 const MEMBERS_AREA_URL =
   process.env.NEXT_PUBLIC_MEMBERS_AREA_URL ?? "https://somalidreams.com/members";
@@ -20,9 +20,11 @@ const REF_STORAGE_KEY = "somali_dreams_ref";
 const REFERRAL_DISCOUNT_PERCENT = getReferralDiscountRatePercent();
 const REFERRAL_DISCOUNT = REFERRAL_DISCOUNT_PERCENT / 100;
 
+const MEMBER_FEES = getMembershipFeeAmounts();
+
 const PLANS = [
-  { id: "monthly", label: "Monthly", amount: 1.99, period: "per month", save: "" },
-  { id: "yearly", label: "Yearly", amount: 17.99, period: "per year", save: "Save 25%" },
+  { id: "monthly", label: "Monthly", amount: MEMBER_FEES.monthly, period: "per month", save: "" },
+  { id: "yearly", label: "Yearly", amount: MEMBER_FEES.yearly, period: "per year", save: "Save 25%" },
 ] as const;
 
 function PayPageContent() {

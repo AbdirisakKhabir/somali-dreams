@@ -1,6 +1,8 @@
 const DEFAULT_REFERRAL_DISCOUNT_RATE = 20;
 const DEFAULT_COMMISSION_PAYOUT_LIMIT = 10;
 const DEFAULT_REFERRAL_COMMISSION = 0.5;
+const DEFAULT_MONTHLY_MEMBER_FEE = 1.99;
+const DEFAULT_YEARLY_MEMBER_FEE = 17.99;
 
 function toNumber(value: string | undefined): number | null {
   if (!value) return null;
@@ -38,4 +40,29 @@ export function getReferralCommissionAmount(): number {
 
 export function getPayBaseUrl(): string {
   return (process.env.SOMALI_DREAMS_PAY_URL || "https://app.somalidreams.com/pay").replace(/\/$/, "");
+}
+
+function getPositiveOrDefault(value: number | null, fallback: number): number {
+  return value != null && value > 0 ? value : fallback;
+}
+
+export function getMembershipFeeAmounts(): { monthly: number; yearly: number } {
+  const monthlyServer = toNumber(process.env.MEMBERSHIP_FEE_MONTHLY);
+  const monthlyPublic = toNumber(process.env.NEXT_PUBLIC_MEMBERSHIP_FEE_MONTHLY);
+  const yearlyServer = toNumber(process.env.MEMBERSHIP_FEE_YEARLY);
+  const yearlyPublic = toNumber(process.env.NEXT_PUBLIC_MEMBERSHIP_FEE_YEARLY);
+
+  const monthly = getPositiveOrDefault(
+    monthlyServer ?? monthlyPublic,
+    DEFAULT_MONTHLY_MEMBER_FEE
+  );
+  const yearly = getPositiveOrDefault(
+    yearlyServer ?? yearlyPublic,
+    DEFAULT_YEARLY_MEMBER_FEE
+  );
+
+  return {
+    monthly: Math.round(monthly * 100) / 100,
+    yearly: Math.round(yearly * 100) / 100,
+  };
 }
