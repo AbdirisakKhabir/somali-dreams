@@ -5,6 +5,7 @@ import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import {
   getCommissionPayoutLimit,
   getPayBaseUrl,
+  getReferralCommissionAmount,
   getReferralDiscountRatePercent,
 } from "@/lib/business-config";
 
@@ -74,7 +75,11 @@ export async function POST(
         : (latestInvoice?.amount ?? 0);
     const transactionRef = externalTransactionId || latestInvoice?.invoiceId || null;
 
-    await prisma.$transaction(async (tx) => {
+    const txResult = await prisma.$transaction(async (tx) => {
+      let paymentRecord:
+        | { id: number; amount: number; externalTransactionId: string | null }
+        | null = null;
+
       if (transactionRef) {
         const existingPayment = await tx.membershipPayment.findFirst({
           where: {
@@ -83,7 +88,7 @@ export async function POST(
           },
         });
         if (!existingPayment) {
-          await tx.membershipPayment.create({
+          paymentRecord = await tx.membershipPayment.create({
             data: {
               memberId: id,
               amount: paymentAmount,
@@ -91,9 +96,11 @@ export async function POST(
               externalTransactionId: transactionRef,
             },
           });
+        } else {
+          paymentRecord = existingPayment;
         }
       } else {
-        await tx.membershipPayment.create({
+        paymentRecord = await tx.membershipPayment.create({
           data: {
             memberId: id,
             amount: paymentAmount,
@@ -102,10 +109,31 @@ export async function POST(
         });
       }
 
+      // Credit the referrer once this member payment is approved.
+      if (member.referredById && paymentRecord) {
+        const existingCommission = await tx.referralCommission.findFirst({
+          where: {
+            membershipPaymentId: paymentRecord.id,
+          },
+        });
+        if (!existingCommission) {
+          await tx.referralCommission.create({
+            data: {
+              referrerId: member.referredById,
+              referredMemberId: id,
+              amount: getReferralCommissionAmount(),
+              membershipPaymentId: paymentRecord.id,
+            },
+          });
+        }
+      }
+
       await tx.member.update({
         where: { id },
         data: { status: "Active" },
       });
+
+      return { paymentId: paymentRecord?.id ?? null };
     });
 
     // Send WhatsApp with referral code and welcome
@@ -115,6 +143,9 @@ export async function POST(
       ? `${payBase}?ref=${encodeURIComponent(member.referralCode)}`
       : membersUrl;
 
+    const whatsappTarget = latestInvoice?.registrationWhatsapp?.trim() || member.phone;
+    let whatsappSent = false;
+    let whatsappError: string | undefined;
     try {
       if (sendWhatsApp) {
         const msg =
@@ -128,12 +159,16 @@ export async function POST(
                 referralLink,
                 membersUrl,
               });
-        const waRes = await sendWhatsAppMessage(member.phone, msg);
+        const waRes = await sendWhatsAppMessage(whatsappTarget, msg);
         if (!waRes.success) {
+          whatsappError = waRes.error;
           console.error("WhatsApp send failed:", waRes.error);
+        } else {
+          whatsappSent = true;
         }
       }
     } catch (waErr) {
+      whatsappError = (waErr as Error).message || "Unknown WhatsApp error";
       console.error("WhatsApp send error:", waErr);
     }
 
@@ -143,14 +178,29 @@ export async function POST(
         referredBy: { select: { id: true, name: true, referralCode: true } },
         referrals: { select: { id: true, name: true, phone: true, referralCode: true } },
         membershipPayments: { orderBy: { paidAt: "desc" } },
+        referralCommissions: {
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            amount: true,
+            referredMemberId: true,
+            createdAt: true,
+            referredMember: { select: { id: true, name: true, referralCode: true } },
+          },
+        },
       },
     });
 
     return NextResponse.json({
       success: true,
       member: updated,
+      paymentId: txResult.paymentId,
+      whatsappSent,
+      whatsappError,
       message: sendWhatsApp
-        ? "Payment confirmed. WhatsApp sent."
+        ? whatsappSent
+          ? "Payment confirmed. WhatsApp sent."
+          : "Payment confirmed, but WhatsApp could not be sent."
         : "Payment confirmed.",
     });
   } catch (e) {
