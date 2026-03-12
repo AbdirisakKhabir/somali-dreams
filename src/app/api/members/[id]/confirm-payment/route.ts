@@ -2,6 +2,35 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
+import {
+  getCommissionPayoutLimit,
+  getPayBaseUrl,
+  getReferralDiscountRatePercent,
+} from "@/lib/business-config";
+
+function buildApprovalMessage(params: {
+  referralCode: string;
+  referralLink: string;
+  membersUrl: string;
+}): string {
+  const discountRate = getReferralDiscountRatePercent();
+  const payoutLimit = getCommissionPayoutLimit();
+  return `Hambalyo! Ku Soo dhawoow Somali Dreams! 🎉
+
+Lacag bixintaada waa la ansixiyay. Xubinnimadaadu hadda waa Active.
+
+Referral Code-kaaga: ${params.referralCode}
+
+Ku wadaag linkigan asxaabtaada (${discountRate}% discount bisha 1aad):
+${params.referralLink}
+
+Marka commission-kaagu gaaro $${payoutLimit.toFixed(2)} waxaad codsan kartaa payout.
+
+Members Area:
+${params.membersUrl}
+
+Mahadsanid! Somali Dreams`;
+}
 
 // Confirm payment: create payment record, set member Active, send WhatsApp
 export async function POST(
@@ -20,52 +49,89 @@ export async function POST(
     }
 
     const body = await req.json().catch(() => ({}));
-    const { amount = 0, paymentMethod = "E-Dahab", externalTransactionId } = body;
+    const {
+      amount: rawAmount,
+      paymentMethod = "E-Dahab",
+      externalTransactionId,
+      customMessage,
+      sendWhatsApp = true,
+    } = body;
 
     const member = await prisma.member.findUnique({ where: { id } });
     if (!member) {
       return NextResponse.json({ error: "Member not found" }, { status: 404 });
     }
 
-    await prisma.$transaction([
-      prisma.membershipPayment.create({
-        data: {
-          memberId: id,
-          amount: Number(amount),
-          paymentMethod,
-          externalTransactionId: externalTransactionId || null,
-        },
-      }),
-      prisma.member.update({
+    const latestInvoice = await prisma.paymentInvoice.findFirst({
+      where: { memberId: id },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const amountFromBody = Number(rawAmount);
+    const paymentAmount =
+      Number.isFinite(amountFromBody) && amountFromBody > 0
+        ? amountFromBody
+        : (latestInvoice?.amount ?? 0);
+    const transactionRef = externalTransactionId || latestInvoice?.invoiceId || null;
+
+    await prisma.$transaction(async (tx) => {
+      if (transactionRef) {
+        const existingPayment = await tx.membershipPayment.findFirst({
+          where: {
+            memberId: id,
+            externalTransactionId: transactionRef,
+          },
+        });
+        if (!existingPayment) {
+          await tx.membershipPayment.create({
+            data: {
+              memberId: id,
+              amount: paymentAmount,
+              paymentMethod,
+              externalTransactionId: transactionRef,
+            },
+          });
+        }
+      } else {
+        await tx.membershipPayment.create({
+          data: {
+            memberId: id,
+            amount: paymentAmount,
+            paymentMethod,
+          },
+        });
+      }
+
+      await tx.member.update({
         where: { id },
         data: { status: "Active" },
-      }),
-    ]);
+      });
+    });
 
     // Send WhatsApp with referral code and welcome
     const membersUrl = process.env.SOMALI_DREAMS_MEMBERS_URL || "https://somalidreams.com/members";
-    const payBase = (process.env.SOMALI_DREAMS_PAY_URL || "https://app.somalidreams.com/pay").replace(/\/$/, "");
+    const payBase = getPayBaseUrl();
     const referralLink = member.referralCode
       ? `${payBase}?ref=${encodeURIComponent(member.referralCode)}`
       : membersUrl;
 
     try {
-      const msg = `Hambalyo! Ku Soo dhawoow Somali Dreams! 🎉
-
-Lacag bixintaada waa la ansixiyay. Xubinnimadaadu hadda waa Active.
-
-Referral Code-kaaga: ${member.referralCode}
-
-Xiriirka ku wadaag asxaabtaada (20% discount bisha 1aad):
-${referralLink}
-
-Members Area:
-${membersUrl}
-
-Mahadsanid! Somali Dreams`;
-      const waRes = await sendWhatsAppMessage(member.phone, msg);
-      if (!waRes.success) {
-        console.error("WhatsApp send failed:", waRes.error);
+      if (sendWhatsApp) {
+        const msg =
+          typeof customMessage === "string" && customMessage.trim()
+            ? customMessage
+                .replace(/\{referralCode\}/g, member.referralCode)
+                .replace(/\{referralLink\}/g, referralLink)
+                .replace(/\{membersUrl\}/g, membersUrl)
+            : buildApprovalMessage({
+                referralCode: member.referralCode,
+                referralLink,
+                membersUrl,
+              });
+        const waRes = await sendWhatsAppMessage(member.phone, msg);
+        if (!waRes.success) {
+          console.error("WhatsApp send failed:", waRes.error);
+        }
       }
     } catch (waErr) {
       console.error("WhatsApp send error:", waErr);
@@ -83,7 +149,9 @@ Mahadsanid! Somali Dreams`;
     return NextResponse.json({
       success: true,
       member: updated,
-      message: "Payment confirmed. WhatsApp sent.",
+      message: sendWhatsApp
+        ? "Payment confirmed. WhatsApp sent."
+        : "Payment confirmed.",
     });
   } catch (e) {
     console.error("Confirm payment error:", e);

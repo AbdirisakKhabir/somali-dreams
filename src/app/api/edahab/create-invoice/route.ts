@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { getReferralDiscountFactor, getReferralDiscountRatePercent } from "@/lib/business-config";
 
 const EDAHAB_API_URL = "https://edahab.net/api/api/IssueInvoice";
 
@@ -118,33 +119,35 @@ export async function POST(req: NextRequest) {
       monthly: 1.99,
       yearly: 17.99,
     };
+    const planAmount =
+      typeof plan === "string" && planAmounts[plan]
+        ? planAmounts[plan]
+        : undefined;
     let amount: number;
-    if (typeof requestAmount === "number" && requestAmount > 0) {
+    if (planAmount !== undefined) {
+      // Prefer server-known plan amount to avoid incorrect client payloads.
+      amount = planAmount;
+    } else if (typeof requestAmount === "number" && requestAmount > 0) {
       amount = Math.round(requestAmount * 100) / 100;
     } else if (typeof requestAmount === "string") {
       const parsed = parseFloat(String(requestAmount).replace(/[^0-9.]/g, ""));
-      if (!isNaN(parsed) && parsed > 0) {
-        amount = Math.round(parsed * 100) / 100;
-      } else if (typeof plan === "string" && planAmounts[plan]) {
-        amount = planAmounts[plan];
-      } else {
-        amount = planAmounts["monthly"];
-      }
-    } else if (typeof plan === "string" && planAmounts[plan]) {
-      amount = planAmounts[plan];
+      amount = !isNaN(parsed) && parsed > 0
+        ? Math.round(parsed * 100) / 100
+        : planAmounts["monthly"];
     } else {
       amount = Number(process.env.EDAHAB_AMOUNT ?? "1.99");
     }
 
-    // 20% referral discount when valid referral code is used
+    // Referral discount when valid referral code is used (default: 20%)
     const referralCode = referralCodeInput?.trim?.() || null;
+    const discountFactor = getReferralDiscountFactor();
     if (referralCode) {
       const trimmed = referralCode.trim().toUpperCase();
       const referrer =
         (await prisma.member.findFirst({ where: { referralCode: trimmed } })) ??
         (await prisma.member.findFirst({ where: { referralCode: referralCode.trim() } }));
       if (referrer) {
-        amount = Math.round(amount * 0.8 * 100) / 100;
+        amount = Math.round(amount * discountFactor * 100) / 100;
       }
     }
 
@@ -291,6 +294,7 @@ export async function POST(req: NextRequest) {
       invoiceId,
       transactionId: data.TransactionId,
       invoiceStatus: data.InvoiceStatus,
+      referralDiscountRatePercent: getReferralDiscountRatePercent(),
     });
   } catch (e) {
     console.error("E-Dahab create invoice error:", e);

@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
+import { getReferralDiscountRatePercent } from "@/lib/business-config";
 
 const MEMBERS_AREA_URL =
   process.env.NEXT_PUBLIC_MEMBERS_AREA_URL ?? "https://somalidreams.com/members";
@@ -16,7 +17,8 @@ type Country = {
 
 const REF_STORAGE_KEY = "somali_dreams_ref";
 
-const REFERRAL_DISCOUNT = 0.2; // 20% off when using referral link
+const REFERRAL_DISCOUNT_PERCENT = getReferralDiscountRatePercent();
+const REFERRAL_DISCOUNT = REFERRAL_DISCOUNT_PERCENT / 100;
 
 const PLANS = [
   { id: "monthly", label: "Monthly", amount: 1.99, period: "per month", save: "" },
@@ -101,7 +103,9 @@ function PayPageContent() {
           : undefined;
 
       const selectedPlan = PLANS.find((p) => p.id === plan) ?? PLANS[0];
-      // API applies 20% discount when referralCode is valid
+      const selectedAmount = effectiveRefCode
+        ? Math.round(selectedPlan.amount * (1 - REFERRAL_DISCOUNT) * 100) / 100
+        : selectedPlan.amount;
 
       // Create invoice only - member is created when payment succeeds (not on cancel)
       const invoiceRes = await fetch("/api/edahab/create-invoice", {
@@ -113,7 +117,7 @@ function PayPageContent() {
           phone: phoneFull,
           whatsappPhone: whatsappFull,
           referralCode: effectiveRefCode,
-          amount: selectedPlan.amount,
+          amount: selectedAmount,
           plan: selectedPlan.id,
         }),
       });
@@ -272,7 +276,7 @@ function PayPageContent() {
                   </p>
                   {effectiveRefCode && (
                     <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">
-                      Joined via referral link – 20% discount applied
+                      Joined via referral link - {REFERRAL_DISCOUNT_PERCENT}% discount applied
                     </p>
                   )}
                 </div>
@@ -323,7 +327,7 @@ function PayPageContent() {
                           </span>
                           {effectiveRefCode ? (
                             <span className="absolute right-2 top-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-500/20 dark:text-amber-400">
-                              20% off
+                              {REFERRAL_DISCOUNT_PERCENT}% off
                             </span>
                           ) : p.save ? (
                             <span className="absolute right-2 top-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400">

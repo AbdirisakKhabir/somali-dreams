@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  getCommissionPayoutLimit,
+  getReferralDiscountRatePercent,
+} from "@/lib/business-config";
 
 // Bawa.app WhatsApp API - Somali Dreams
 // Trim to handle .env entries with spaces (e.g. "BAWA_TOKEN = value")
@@ -22,16 +26,20 @@ function getSomaliDreamsMessage(
   template: string,
   data: Record<string, string | undefined>
 ): string {
+  const discountRate = getReferralDiscountRatePercent();
+  const payoutLimit = getCommissionPayoutLimit();
   const templates: Record<string, string> = {
-    // Sent when payment is confirmed - includes referral link (friends get 20% off first month)
+    // Sent when payment is confirmed - includes referral link and payout details
     payment_confirmation: `Hambalyo! Ku Soo dhawoow Somali Dreams! 🎉
 
 **Lacag bixintaada waa la aqbalay.** Waxaad hadda kamid tahay Somali Dreams.
 
 **Referral Code-kaaga:** ${data.referralCode || "N/A"}
 
-**Xiriirka ku wadaag asxaabtaada** – saaxiibadaada waxay heli doonaan 20% discount ah bilkii koowaad. Marka ay bixiyaan, waxaad ku heleysaa $0.50 commission:
+**Riix linkigan oo la wadaag asxaabtaada** - waxay helayaan ${discountRate}% discount bilkii koowaad:
 ${data.referralLink || "N/A"}
+
+Payout commission-ka wuxuu furmaa marka uu gaaro $${payoutLimit.toFixed(2)}.
 
 **Members Area:**
 ${data.membersAreaUrl || "https://somalidreams.com/members"}
@@ -51,13 +59,15 @@ ${data.membersAreaUrl || "https://somalidreams.com/members"}
 
 Mahadsanid! Somali Dreams`,
 
-    // Referral code only - friends get 20% off first month, referrer gets $0.50
+    // Referral code only - includes discount and payout limit
     referral_code: `Somali Dreams - Referral Code-kaaga
 
 **Code-kaaga:** ${data.referralCode || "N/A"}
 
-**Xiriirka ku wadaag asxaabtaada** – 20% discount bilkii koowaad. Marka ay bixiyaan waxaad ku heleysaa $0.50:
+**Riix linkigan oo la wadaag asxaabtaada** - ${discountRate}% discount bilkii koowaad:
 ${data.referralLink || "N/A"}
+
+Payout commission-ka wuxuu furmaa marka uu gaaro $${payoutLimit.toFixed(2)}.
 
 Mahadsanid! Somali Dreams`,
 

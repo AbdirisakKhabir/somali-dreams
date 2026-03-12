@@ -30,6 +30,16 @@ type MemberRow = {
   referralCommissions: { amount: number }[];
 };
 
+const REFERRAL_DISCOUNT_RATE = Number(
+  process.env.NEXT_PUBLIC_REFERRAL_DISCOUNT_RATE_PERCENT ?? "20"
+);
+const COMMISSION_PAYOUT_LIMIT = Number(
+  process.env.NEXT_PUBLIC_COMMISSION_PAYOUT_LIMIT ?? "10"
+);
+const PAY_BASE_URL = (
+  process.env.NEXT_PUBLIC_SOMALI_DREAMS_PAY_URL ?? "https://app.somalidreams.com/pay"
+).replace(/\/$/, "");
+
 export default function MembersPage() {
   const { hasPermission } = useAuth();
   const [members, setMembers] = useState<MemberRow[]>([]);
@@ -58,6 +68,12 @@ export default function MembersPage() {
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
+  const [approvalModal, setApprovalModal] = useState(false);
+  const [approvalMember, setApprovalMember] = useState<MemberRow | null>(null);
+  const [approvalMessage, setApprovalMessage] = useState("");
+  const [sendApprovalWhatsApp, setSendApprovalWhatsApp] = useState(true);
+  const [discountRatePercent, setDiscountRatePercent] = useState(REFERRAL_DISCOUNT_RATE);
+  const [commissionPayoutLimit, setCommissionPayoutLimit] = useState(COMMISSION_PAYOUT_LIMIT);
   const [processingPayments, setProcessingPayments] = useState(false);
 
   const canView = hasPermission("members.view") || hasPermission("dashboard.view");
@@ -158,24 +174,62 @@ export default function MembersPage() {
     }
   }
 
-  async function handleConfirmPayment(id: number) {
-    if (!confirm("Confirm payment received and send WhatsApp welcome?")) return;
+  function buildApprovalMessage(member: MemberRow): string {
+    const referralLink = `${PAY_BASE_URL}?ref=${encodeURIComponent(member.referralCode)}`;
+    return `Hambalyo! Ku Soo dhawoow Somali Dreams! 🎉
+
+Lacag bixintaada waa la ansixiyay. Xubinnimadaadu hadda waa Active.
+
+Referral Code-kaaga: ${member.referralCode}
+Riix linkigan oo la wadaag asxaabtaada (${discountRatePercent}% discount bisha 1aad):
+${referralLink}
+
+Marka commission-kaagu gaaro $${commissionPayoutLimit.toFixed(2)} waxaad codsan kartaa payout.
+
+Mahadsanid! Somali Dreams`;
+  }
+
+  function openApprovalModal(member: MemberRow) {
+    setApprovalMember(member);
+    setApprovalMessage(buildApprovalMessage(member));
+    setSendApprovalWhatsApp(true);
+    setApprovalModal(true);
+  }
+
+  async function handleConfirmPayment(
+    id: number,
+    options?: { customMessage?: string; sendWhatsApp?: boolean }
+  ) {
     setConfirmingId(id);
     try {
       const res = await authFetch(`/api/members/${id}/confirm-payment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: 0, paymentMethod: "E-Dahab" }),
+        body: JSON.stringify({
+          paymentMethod: "E-Dahab",
+          customMessage: options?.customMessage,
+          sendWhatsApp: options?.sendWhatsApp ?? true,
+        }),
       });
       const data = await res.json();
       if (res.ok) {
         await loadMembers();
+        setApprovalModal(false);
+        setApprovalMember(null);
       } else {
         alert(data.error || "Failed to confirm payment");
       }
     } finally {
       setConfirmingId(null);
     }
+  }
+
+  async function handleApproveFromModal() {
+    if (!approvalMember) return;
+    await handleConfirmPayment(approvalMember.id, {
+      customMessage: approvalMessage.trim(),
+      sendWhatsApp: sendApprovalWhatsApp,
+    });
   }
 
   async function handleDelete(id: number) {
@@ -342,6 +396,73 @@ export default function MembersPage() {
         </div>
       </div>
 
+      <div className="mb-6 grid gap-4 md:grid-cols-2">
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/3">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-white/90">
+            Discount Rate Customization
+          </h3>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Default is 20%. This value is used in approval message content.
+          </p>
+          <div className="mt-3 flex items-center gap-2">
+            <input
+              type="number"
+              min={0}
+              max={100}
+              step={1}
+              value={discountRatePercent}
+              onChange={(e) =>
+                setDiscountRatePercent(
+                  Math.min(100, Math.max(0, Number(e.target.value || 0)))
+                )
+              }
+              className="h-10 w-28 rounded-lg border border-gray-200 bg-transparent px-3 text-sm text-gray-700 outline-none dark:border-gray-700 dark:text-gray-300"
+            />
+            <span className="text-sm text-gray-600 dark:text-gray-400">%</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setDiscountRatePercent(REFERRAL_DISCOUNT_RATE)}
+            >
+              Reset
+            </Button>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/3">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-white/90">
+            Commission Payout Section
+          </h3>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Members become payout-eligible once commission reaches this limit.
+          </p>
+          <div className="mt-3 flex items-center gap-2">
+            <span className="text-sm text-gray-600 dark:text-gray-400">$</span>
+            <input
+              type="number"
+              min={0}
+              step={0.5}
+              value={commissionPayoutLimit}
+              onChange={(e) =>
+                setCommissionPayoutLimit(
+                  Math.max(0, Number(e.target.value || 0))
+                )
+              }
+              className="h-10 w-28 rounded-lg border border-gray-200 bg-transparent px-3 text-sm text-gray-700 outline-none dark:border-gray-700 dark:text-gray-300"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setCommissionPayoutLimit(COMMISSION_PAYOUT_LIMIT)}
+            >
+              Reset
+            </Button>
+          </div>
+        </div>
+      </div>
+
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/3">
         <div className="flex flex-col gap-4 border-b border-gray-200 px-5 py-4 dark:border-gray-800">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -499,11 +620,11 @@ export default function MembersPage() {
                       {m.status === "Pending" && (
                         <button
                           type="button"
-                          onClick={() => handleConfirmPayment(m.id)}
+                          onClick={() => openApprovalModal(m)}
                           disabled={confirmingId === m.id}
                           className="inline-flex h-8 items-center justify-center rounded-lg bg-green-100 px-2 text-xs font-medium text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
                         >
-                          {confirmingId === m.id ? "..." : "Confirm Payment"}
+                          {confirmingId === m.id ? "..." : "Approve"}
                         </button>
                       )}
                       {canEdit && (
@@ -747,6 +868,79 @@ export default function MembersPage() {
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {approvalModal && approvalMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg animate-in fade-in zoom-in-95 rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+                Approve {approvalMember.name}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setApprovalModal(false)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-4 px-6 py-5">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={sendApprovalWhatsApp}
+                  onChange={(e) => setSendApprovalWhatsApp(e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  Send WhatsApp approval message
+                </span>
+              </label>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Message customization
+                </label>
+                <textarea
+                  value={approvalMessage}
+                  onChange={(e) => setApprovalMessage(e.target.value)}
+                  rows={7}
+                  disabled={!sendApprovalWhatsApp}
+                  className="w-full rounded-lg border border-gray-200 bg-transparent px-4 py-3 text-sm text-gray-800 outline-none placeholder:text-gray-400 focus:border-brand-300 focus:ring-2 focus:ring-brand-500/20 disabled:opacity-60 dark:border-gray-700 dark:text-white dark:focus:border-brand-500/40"
+                />
+                <a
+                  href={`${PAY_BASE_URL}?ref=${encodeURIComponent(approvalMember.referralCode)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-block text-xs text-brand-500 hover:underline"
+                >
+                  Open referral link
+                </a>
+              </div>
+              <div className="flex items-center justify-end gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setApprovalModal(false)}
+                  size="sm"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleApproveFromModal}
+                  disabled={confirmingId === approvalMember.id}
+                  size="sm"
+                >
+                  {confirmingId === approvalMember.id ? "Approving..." : "Approve Member"}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
